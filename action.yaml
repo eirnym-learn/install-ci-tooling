@@ -71,13 +71,18 @@ runs:
       *) unset cargo_binstall;;
       esac
 
+      case "${{ RUNNER_DEBUG }}" in
+      true) log_level="debug"
+      *) log_level=${{ inputs.log-level}}
+      esac
+
       python "${{ github.action_path }}/entrypoint.py" \
         --default-datasource "${{ inputs.default-datasource }}" \
-        ${force_flag:+--force} \
+        ${force_flag:+--force-install} \
         ${dry_run:+--dry-run} \
         ${quiet:+--quiet} \
         ${cargo_binstall:+--cargo-binstall} \
-        ${RUNNER_DEBUG:+--force-debug} \
+        --log-level $log_level \
         "${{ inputs.tools-file }}" \
         "${{ inputs.section }}"
 

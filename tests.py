@@ -64,7 +64,7 @@ def execute_command(
         command_args.append("--cargo-binstall")
 
     if force:
-        command_args.append("--force")
+        command_args.append("--force-install")
 
     if default_datasource is not None:
         command_args.append(f"--default-datasource={default_datasource}")
