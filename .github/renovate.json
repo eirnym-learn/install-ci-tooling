@@ -9,8 +9,8 @@
   "enabled": true,
   "extends": [
     "config:recommended",
-    ".github/renovate-ci-tools.json",
-    ".github/renovate-prek.json"
+    "renovate-ci-tools.json",
+    "renovate-prek.json"
   ],
   "osvVulnerabilityAlerts": true,
   "pre-commit": {
