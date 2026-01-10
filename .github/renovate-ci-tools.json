@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "customManagers": [
+    {
+      "customType": "jsonata",
+      "description": "CI Tools (tool=version or tool={version, datasource})",
+      "fileFormat": "toml",
+      "managerFilePatterns": [
+        "/(^|/)\\.github/ci-tools\\.toml$/"
+      ],
+      "matchStrings": [
+        "$reduce(\n    $each($, function($section) {\n        $each($section, function($v, $k) { \n            $type($v)= \"object\" ? {\n                \"depName\": $k,\n                \"currentValue\": $v.version,\n                \"datasource\": $v.source,\n                \"versioning\": $v.versioning? $v.versioning: undefined\n            }: undefined\n        })\n    }),\n    $append\n)"
+      ],
+      "versioningTemplate": "semver"
+    }
+  ],
+  "enabled": true
+}
