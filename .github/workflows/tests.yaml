@@ -10,10 +10,6 @@ on:
       sha:
         description: Source SHA used to build bindings. Uses `github.sha`` by default.
         required: false
-      mutants_force:
-        type: boolean
-        description: Run all mutants.
-        required: false
   push:
     branches:
     - main
