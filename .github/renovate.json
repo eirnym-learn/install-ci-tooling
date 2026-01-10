@@ -9,8 +9,8 @@
   "enabled": true,
   "extends": [
     "config:recommended",
-    "local>./renovate-ci-tools.json",
-    "local>./renovate-prek.json"
+    "github>eirnym-learn/act-tooling//.github/renovate-ci-tools.json",
+    "github>eirnym-learn/act-tooling//.github/renovate-prek.json"
   ],
   "osvVulnerabilityAlerts": true,
   "pre-commit": {
