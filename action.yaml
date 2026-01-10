@@ -68,8 +68,8 @@ runs:
       esac
 
       case "$RUNNER_DEBUG" in
-      true) log_level="debug"
-      *) log_level=${{ inputs.log-level}}
+      true) log_level="debug";;
+      *) log_level=${{ inputs.log-level}};;
       esac
 
       python "${{ github.action_path }}/entrypoint.py" \
