@@ -14,20 +14,16 @@ on:
     branches:
     - main
     paths:
-    - Cargo.toml
-    - Cargo.lock
-    - src/**
-    - tests/**
-    - .config/nextest.toml
+    - action.yaml
+    - endpoint.py
+    - tests.py
     - .github/workflows/ci.yaml
     - .github/ci-tools.toml
   pull_request:
     paths:
-    - Cargo.toml
-    - Cargo.lock
-    - src/**
-    - tests/**
-    - .config/nextest.toml
+    - action.yaml
+    - endpoint.py
+    - tests.py
     - .github/workflows/ci.yaml
     - .github/ci-tools.toml
 
