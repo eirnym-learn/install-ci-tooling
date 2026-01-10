@@ -67,7 +67,7 @@ runs:
       *) unset cargo_binstall;;
       esac
 
-      case "${{ RUNNER_DEBUG }}" in
+      case "$RUNNER_DEBUG" in
       true) log_level="debug"
       *) log_level=${{ inputs.log-level}}
       esac
