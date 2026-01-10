@@ -48,5 +48,11 @@ jobs:
         pytest tests.py -n auto --random-order
     - name: Action test
       run: |
-        fd > /dev/null 2>/dev/null || { echo "fd not installed"; exit 1; }
-        typos > /dev/null 2>/dev/null && { echo "typos is installed"; exit 1; }
+        if ! command -v fd; then
+          echo "fd not installed"
+          exit 1
+        fi
+        if command -v typos; then
+          echo "typos is installed"
+          exit 1
+        fi
