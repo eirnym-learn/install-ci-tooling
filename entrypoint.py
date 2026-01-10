@@ -30,6 +30,7 @@ def parse_args():
         help="Default data source",
     )
     parser.add_argument("--force", help="Force reinstall", action="store_true")
+    parser.add_argument("--force-debug", help="Force set log-level to debug", action="store_true")
     parser.add_argument(
         "--log-level",
         help="Set log level",
@@ -42,6 +43,7 @@ def parse_args():
         help="Path to the TOML file containing tool versions",
         metavar="tools-file",
     )
+
     parser.add_argument("section", help="Section to use")
     return parser.parse_args()
 
@@ -270,7 +272,12 @@ def crates_toml():
 def main() -> bool:
     args = parse_args()
 
-    setup_logging(args.log_level)
+    if args.force_debug:
+        log_level = 'debug'
+    else:
+        log_level = args.log_level
+
+    setup_logging(log_level)
     installed_crates = dict(parse_installed_cargo(crates_toml()))
     logger.debug(f"Installing cargo tools from {args.toml_file}/{args.section}")
 

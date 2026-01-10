@@ -9,7 +9,7 @@ inputs:
     required: false
     default: .github/ci-tools.toml
   section:
-    description: Section to use (e.g. "tools", "tools.dev")
+    description: TOML section to use (e.g. "tools", "tools.dev")
     required: false
     default: tools
   force:
@@ -19,27 +19,33 @@ inputs:
     default: false
   dry-run:
     type: boolean
-    description: Don't actually install anything
-    required: false
-    default: false
-  quiet:
-    type: boolean
-    description: Minimize output
+    description: Don't actually install anything. Command will be printed out
     required: false
     default: false
   cargo-binstall:
     type: boolean
-    description: Use `cargo binstall` to install cargo tools
+    description: Use `cargo binstall` to install Rust tools
     required: false
     default: true
   default-datasource:
     description: Default tool datasource
     required: false
     default: crate
+  log-level:
+    type: choice
+    description: Action logging level
+    required: false
+    default: info
+    options:
+    - debug
+    - info
+    - warn
+    - error
 runs:
   using: composite
   steps:
   - name: Install cargo-binstall
+    if: ${{ inputs.cargo-binstall }}
     uses: cargo-bins/cargo-binstall@v1.16.6
 
   - name: Install tools from tools file using cargo-binstall
@@ -71,7 +77,7 @@ runs:
         ${dry_run:+--dry-run} \
         ${quiet:+--quiet} \
         ${cargo_binstall:+--cargo-binstall} \
-        ${RUNNER_DEBUG:+--debug} \
+        ${RUNNER_DEBUG:+--force-debug} \
         "${{ inputs.tools-file }}" \
         "${{ inputs.section }}"
 
