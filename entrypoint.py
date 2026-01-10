@@ -129,7 +129,7 @@ def read_tools(
 
     tools: dict[str, Any] | None = data.get(section)
 
-    if tools is None or not isinstance(tools, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
+    if tools is None or not isinstance(tools, dict):
         logger.error(f"Tools file doesn't contain section requested: {section}")
         return None
 
@@ -181,7 +181,8 @@ def install_tool_crate(
             return
         else:
             logger.info(
-                f"{crate_name} version mismatch (found: {installed_version}, expected: {version}), reinstalling..."
+                f"{crate_name} version mismatch "
+                f"(found: {installed_version}, expected: {version}). reinstalling..."
             )
     else:
         logger.info(f"> {crate_name} not found, installing...")
@@ -289,7 +290,7 @@ def main() -> bool:
                 tool_name=tool_name,
                 version=version,
                 datasource=datasource,
-                force=args.force,
+                force=args.force_install,
                 dry_run=args.dry_run,
                 cargo_binstall=args.cargo_binstall,
                 installed_crates=installed_crates,

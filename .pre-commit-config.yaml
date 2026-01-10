@@ -1,0 +1,50 @@
+---
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+  - id: check-case-conflict
+  - id: check-merge-conflict
+  - id: check-json
+  - id: check-symlinks
+  - id: end-of-file-fixer
+    exclude: ^tests/data/.*$
+  - id: pretty-format-json
+    args: [--autofix]
+  - id: trailing-whitespace
+- repo: https://github.com/Lucas-C/pre-commit-hooks
+  rev: v1.5.5
+  hooks:
+  - id: forbid-crlf
+  - id: forbid-tabs
+- repo: https://github.com/crate-ci/typos
+  rev: v1.42.0
+  hooks:
+  - id: typos
+    args: []
+    stages: [pre-commit]
+  - id: typos
+    name: commit-msg-typos
+    stages: [commit-msg]
+- repo: https://github.com/jumanjihouse/pre-commit-hook-yamlfmt
+  rev: 0.2.3
+  hooks:
+  - id: yamlfmt
+    args: [--mapping, '2', --sequence, '2', --offset, '0', --width, '150']
+- repo: https://github.com/python-jsonschema/check-jsonschema
+  rev: 0.36.0
+  hooks:
+  - id: check-github-workflows
+    args: [--verbose]
+  - id: check-renovate
+    args: [--verbose]
+- repo: https://github.com/ComPWA/taplo-pre-commit
+  rev: v0.9.3
+  hooks:
+  - id: taplo-format
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.14.11
+  hooks:
+  - id: ruff-check
+    args: [--fix]
+  - id: ruff-format

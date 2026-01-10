@@ -27,10 +27,6 @@ inputs:
     description: Use `cargo binstall` to install Rust tools
     required: false
     default: true
-  default-datasource:
-    description: Default tool datasource
-    required: false
-    default: crate
   log-level:
     type: choice
     description: Action logging level
@@ -85,4 +81,3 @@ runs:
         --log-level $log_level \
         "${{ inputs.tools-file }}" \
         "${{ inputs.section }}"
-

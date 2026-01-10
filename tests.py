@@ -5,10 +5,12 @@ import os
 import re
 
 # Minimal .crates.toml to check against
-crates_toml = """
+_crates_index = "https://github.com/rust-lang/crates.io-index"
+crates_toml = f"""
 [v1]
-"cargo-binstall 1.16.6 (registry+https://github.com/rust-lang/crates.io-index)" = ["cargo-binstall"]
+"cargo-binstall 1.16.6 (registry+{_crates_index})" = ["cargo-binstall"]
 """
+unknown_tool_ds = 'unknown_tool = {"version" = "1.12.3", "datasource"= "unknown"}'
 
 SECTION = "section"
 CRATE_DATASOURCE = "crate"
@@ -116,7 +118,7 @@ def execute_command(
         ),
         (
             "crate",
-            'install_tool = "1.1.4"\nunknown_tool = {"version" = "1.12.3", "datasource" = "unknown"}',
+            f'install_tool = "1.1.4"\n{unknown_tool_ds}',
             ["install_tool@1.1.4"],
             ["unknown_tool"],
         ),
@@ -142,7 +144,7 @@ def execute_command(
         ),
         (
             "unknown",
-            'install_tool = "1.1.4"\nunknown_tool = {"version" = "1.12.3", "datasource" ="unknown"}',
+            f'install_tool = "1.1.4"\n{unknown_tool_ds}',
             [],
             ["install_tool", "unknown_tool"],
         ),
@@ -162,13 +164,13 @@ def execute_command(
         ),
         (
             None,
-            'unknown_tool = {"version" = "1.12.3", "datasource"= "unknown"}',
+            unknown_tool_ds,
             [],
             ["unknown_tool"],
         ),
         (
             None,
-            'install_tool = "1.1.4"\nunknown_tool = {"version" = "1.12.3", "datasource"= "unknown"}',
+            f'install_tool = "1.1.4"\n{unknown_tool_ds}',
             [],
             ["install_tool", "unknown_tool"],
         ),
