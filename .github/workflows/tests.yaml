@@ -46,7 +46,13 @@ jobs:
     - uses: actions/checkout@v5
     - name: Set up Python
       uses: actions/setup-python@v5
-    - name: Testing
+    - name: Self test action
+      uses: ./
+    - name: Unit tests
       run: |
         pip install pytest pytest-xdist pytest-random-order
         pytest tests.py -n auto --random-order
+    - name: Action test
+      run: |
+        fd > /dev/null 2>/dev/null || { echo "fd not installed"; exit 1; }
+        typos > /dev/null 2>/dev/null && { echo "typos is installed"; exit 1; }

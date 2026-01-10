@@ -1,0 +1,5 @@
+[tools]
+fd-find = { version = "10.3.0", "datasource" = "crate" }
+
+[not-installing]
+typos-cli = { version = "1.42.0", datasource = "crate" }
