@@ -1,0 +1,77 @@
+---
+name: Simple install Rust tools (with binstall)
+description: Installs cargo tools listed in a TOML file using cargo-binstall
+author: you
+
+inputs:
+  tools-file:
+    description: Path to a TOML file containing tool versions
+    required: false
+    default: .github/ci-tools.toml
+  section:
+    description: Section to use (e.g. "tools", "tools.dev")
+    required: false
+    default: tools
+  force:
+    type: boolean
+    description: Force reinstall tool even if already installed
+    required: false
+    default: false
+  dry-run:
+    type: boolean
+    description: Don't actually install anything
+    required: false
+    default: false
+  quiet:
+    type: boolean
+    description: Minimize output
+    required: false
+    default: false
+  cargo-binstall:
+    type: boolean
+    description: Use `cargo binstall` to install cargo tools
+    required: false
+    default: true
+  default-datasource:
+    description: Default tool datasource
+    required: false
+    default: crate
+runs:
+  using: composite
+  steps:
+  - name: Install cargo-binstall
+    uses: cargo-bins/cargo-binstall@v1.16.6
+
+  - name: Install tools from tools file using cargo-binstall
+    shell: bash
+    run: |
+      case "${{ inputs.force }}" in
+      true) force_flag=_;;
+      *) unset force_flag;;
+      esac
+
+      case "${{ inputs.dry-run }}" in
+      true) dry_run=_;;
+      *) unset dry_run;;
+      esac
+
+      case "${{ inputs.quiet }}" in
+      true) quiet=_;;
+      *) unset quiet;;
+      esac
+
+      case "${{ inputs.cargo-binstall }}" in
+      true) cargo_binstall=_;;
+      *) unset cargo_binstall;;
+      esac
+
+      python "${{ github.action_path }}/entrypoint.py" \
+        --default-datasource "${{ inputs.default-datasource }}" \
+        ${force_flag:+--force} \
+        ${dry_run:+--dry-run} \
+        ${quiet:+--quiet} \
+        ${cargo_binstall:+--cargo-binstall} \
+        ${RUNNER_DEBUG:+--debug} \
+        "${{ inputs.tools-file }}" \
+        "${{ inputs.section }}"
+

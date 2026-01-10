@@ -1,0 +1,50 @@
+---
+name: Style checks
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+    - main
+
+  pull_request:
+    types: [assigned, opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  COLOR: yes
+  FORCE_COLOR: 1
+  CARGO_TERM_COLOR: always
+  CARGO_TERM_PROGRESS_WHEN: never
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+  CARGO_NET_RETRY: 10
+  BINSTALL_DISABLE_TELEMETRY: true
+
+permissions: {}
+jobs:
+  pre-commit:
+    permissions:
+      contents: read
+    name: Pre-commit checks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+        cache: pip
+    - name: Install dependencies
+      run: |
+        pip install -U pip setuptools wheel
+        pip install -r .github/requirements.txt
+    - uses: actions/cache@v5
+      with:
+        path: ~/.cache/pre-commit/
+        key: pre-commit-4|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+    - name: Run pre-commit hooks
+      run: pre-commit run --all-files --show-diff-on-failure

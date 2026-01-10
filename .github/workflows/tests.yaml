@@ -1,0 +1,54 @@
+---
+name: CI checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Source ref used to build bindings. Uses `github.ref`` by default.
+        required: false
+      sha:
+        description: Source SHA used to build bindings. Uses `github.sha`` by default.
+        required: false
+      mutants_force:
+        type: boolean
+        description: Run all mutants.
+        required: false
+  push:
+    branches:
+    - main
+    paths:
+    - Cargo.toml
+    - Cargo.lock
+    - src/**
+    - tests/**
+    - .config/nextest.toml
+    - .github/workflows/ci.yaml
+    - .github/ci-tools.toml
+  pull_request:
+    paths:
+    - Cargo.toml
+    - Cargo.lock
+    - src/**
+    - tests/**
+    - .config/nextest.toml
+    - .github/workflows/ci.yaml
+    - .github/ci-tools.toml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
+      - name: Testing
+        run: |
+          pip install pytest
+          pytest tests.py
+
+

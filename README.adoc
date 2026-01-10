@@ -1,0 +1,68 @@
+= Simple install for CI tooling
+
+Action to quick install multiple tools listed in a given TOML file and given section.
+
+== Action configuration
+
+.Adjustments
+[options=header]
+|======
+| variable | description | Default value | notes
+// -------------------
+| tools-file
+| Path to a TOML file containing tool versions
+| .github/ci-tools.toml
+|
+// -------------------
+| section
+| Section to use (e.g. "tools", "tools.dev")
+| tools
+|
+// -------------------
+| force
+| Force reinstall tool even if already installed
+| false
+|
+// -------------------
+| dry-run
+| Don't actually install anything
+| false
+| Install command will not be executed at all.
+// -------------------
+| quiet
+| Be quiet
+| false
+| Install tool will produce normal output.
+// -------------------
+| cargo-binstall
+| Use `cargo binstall` to install cargo tools as binary packages
+| true
+| `cargo binstall` must be preinstalled.
+// -------------------
+| default-datasource
+| Default tool datasource.
+| `"crate"`
+| Currently known: `crate`.
+  Future extension to install from other sources
+// -------------------
+|======
+
+== Tooling TOML file contents
+
+Contents of tooling TOML file has following supported structure.
+
+* All entries read by the action must be in a section
+* Each entry can be in form `package = "<version>"` or `package = { "version"="<version>", "datasource"="<datasource>"}`, where `datasource` key is optional.
+
+== Implementation notes and usage tips
+
+At the moment of writing there's following implementation assumptions
+
+* At the moment `crate` datasource is the only datasource to install from.
+* `crate` data source implementation obtains cargo home from environment variable `CARGO_HOME` defaulting to `~/.cargo`.
+* Sample RenovateBot config to update tooling can be found in `.github/renovate.json` file from this action repository. It will be upgraded in the future to cover features required.
+* To preinstall https://github.com/cargo-bins/cargo-binstall[`cargo-binstall`] consult with their documentation.
+* Run script in debug mode to see what exact command will be running to install package
+* Invalid values are ignored at the moment. They will raise errors in the future
+* `dry-run` is not implemented everywhere, thus implementation is just to skip it.
+* Debug mode will not increase install tool verbosity.
