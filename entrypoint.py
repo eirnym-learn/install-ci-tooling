@@ -336,8 +336,7 @@ def main() -> bool:
 
     setup_logging(args.log_level)
 
-    logger.error(f"{args!r}")
-    logger.debug(f"Installing cargo tools from {args.toml_file}/{args.section}")
+    logger.info(f"Installing cargo tools from {args.toml_file}/{args.section}")
     installed_rust_tools = dict(list_installed_rust_tools())
     installed_python_packages = dict(list_installed_python_packages(args.use_python_uv))
 
