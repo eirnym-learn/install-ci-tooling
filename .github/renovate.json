@@ -10,7 +10,7 @@
     {
       "customType": "jsonata",
       "description": "workflows prek",
-      "fileFormat": "toml",
+      "fileFormat": "yaml",
       "managerFilePatterns": [
         "/(^|/)\\.github/workflows/.*\\.ya?ml$/"
       ],
