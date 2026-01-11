@@ -73,7 +73,6 @@ runs:
       esac
 
       python "${{ github.action_path }}/entrypoint.py" \
-        --default-datasource "${{ inputs.default-datasource }}" \
         ${force_install:+--force-install} \
         ${dry_run:+--dry-run} \
         ${use_cargo_binstall:+--use-cargo-binstall} \
