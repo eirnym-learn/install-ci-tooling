@@ -46,8 +46,9 @@ runs:
   - name: Install tools from tools file using cargo-binstall
     shell: bash
     run: |
-      log_level=${{ inputs.log-level}}
-      if (( ${+RUNNER_DEBUG} )); then
+      log_level=${{ inputs.log-level }}
+
+      if (( ${+ACTIONS_RUNNER_DEBUG} )); then
         setopt XTRACE;
         log_level=debug;
       fi
