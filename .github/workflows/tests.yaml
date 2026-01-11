@@ -40,12 +40,12 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: '3.14'
+    - name: Install cargo-binstall
+      uses: cargo-bins/cargo-binstall@v1.16.6
+    - name: Install uv
+      uses: cargo-bins/cargo-binstall@v1.16.6
     - name: Self test action
       uses: ./
-    - name: Unit tests
-      run: |
-        pip install pytest pytest-xdist pytest-random-order
-        pytest tests.py -n auto --random-order
     - name: Action test
       run: |
         if ! command -v fd; then
@@ -56,3 +56,6 @@ jobs:
           echo "typos is installed"
           exit 1
         fi
+    - name: Unit tests
+      run: |
+        pytest tests.py -n auto --random-order

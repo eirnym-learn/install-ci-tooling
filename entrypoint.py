@@ -7,27 +7,38 @@ import re
 import subprocess
 import sys
 import tomllib
-from typing import Any, Callable
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 
 # normal for Rust crates, quite restrictive for others
-VERSION_RE = re.compile(r"\d+\.\d+\.\d+")
-TOOL_NAME_RE = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_-]+")
-KNOWN_DATA_SOURCES = ("crate",)
+VERSION_PATTERN = re.compile(
+    r"""
+        ^
+        v?           # v prefix (required for python)
+        (?:\d+!)?    # epoch prefix (required for python)
+        (?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){2} # release version x.y.z, no leading zeros for each segment
+        ([-.][a-zA-Z]+(?:\.?\d+)?)? # loosen pre-release segments. E.g. -alpha.1, .post1, etc.
+        (?:\+[a-zA-Z]+(?:\.\d+)?)?  # build/local info. E.g. +build.1
+        $
+        """,
+    re.VERBOSE,
+)
+TOOL_NAME_PATTERN = re.compile(r"[a-zA-Z0-9](?:[a-zA-Z0-9._-]+[a-zA-Z0-9])?")
 KNOWN_LOG_LEVELS = ("error", "warn", "info", "debug")
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Simple install for CI tooling")
     parser.add_argument(
-        "--cargo-binstall",
+        "--use-cargo-binstall",
         help="Use `cargo binstall` to install Rust tools",
         action="store_true",
     )
     parser.add_argument(
-        "--default-datasource",
-        help="Default data source",
+        "--use-python-uv",
+        help="Use `uv` to install Python tools",
+        action="store_true",
     )
     parser.add_argument("--force-install", help="Force reinstall", action="store_true")
     parser.add_argument(
@@ -77,7 +88,7 @@ def validate_version(tool_name: str, version: Any) -> bool:
         logger.error(f"{tool_name}: Version must be a string")
         return False
 
-    if VERSION_RE.fullmatch(version) is None:
+    if VERSION_PATTERN.fullmatch(version) is None:
         logger.error(f"{tool_name}: Version doesn't match semver scheme: {version!r}")
         return False
 
@@ -90,7 +101,7 @@ def validate_tool_name(tool_name: str) -> bool:
     Returns `None` if tool name doesn't match the `TOOL_NAME_RE`.
     """
     tool_name = tool_name.strip()
-    if TOOL_NAME_RE.fullmatch(tool_name) is None:
+    if TOOL_NAME_PATTERN.fullmatch(tool_name) is None:
         logger.error(f"Tool name is unexpected: {tool_name!r}")
         return False
 
@@ -102,9 +113,6 @@ def validate_datasource(tool_name: str, datasource: Any) -> bool:
 
     Returns `None` if datasource is not a string.
     """
-    if datasource is None:
-        return True
-
     if not isinstance(datasource, str):
         logger.error(f"{tool_name}: Datasource is not a string")
         return False
@@ -112,9 +120,7 @@ def validate_datasource(tool_name: str, datasource: Any) -> bool:
     return True
 
 
-def read_tools(
-    toml_file: str, section: str, default_datasource: str | None
-) -> list[tuple[str, Any, Any]] | None:
+def read_tools(toml_file: str, section: str) -> list[tuple[str, Any, Any]] | None:
     """Reads given section from given tools file.
 
     Returns tuple of (tool name, version, datasource).
@@ -139,14 +145,11 @@ def read_tools(
         if not validate_tool_name(tool_name):
             return None
 
-        if isinstance(value, str):  # value is version
-            version = value
-            datasource = default_datasource
-        elif isinstance(value, dict):
-            version = value.get("version", None)
-            datasource = value.get("datasource", default_datasource)
+        if isinstance(value, dict):
+            version = value.get("version")
+            datasource = value.get("source")
         else:
-            logger.error(f"{tool_name}: Value must be a string or dict")
+            logger.error(f"{tool_name}: Value must be a dict")
             return None
 
         if not validate_version(tool_name, version):
@@ -155,52 +158,77 @@ def read_tools(
         if not validate_datasource(tool_name, datasource):
             return None
 
-        if datasource is None or datasource not in KNOWN_DATA_SOURCES:
-            logger.warning(f"{tool_name}: Datasource is not supported")
-            continue
-
         result.append((tool_name, version, datasource))
 
     return result
 
 
-def install_tool_crate(
-    crate_name: str,
-    version: str,
-    force: bool,
-    dry_run: bool,
-    cargo_binstall: bool,
-    installed_crates: dict[Any, Any],
-) -> None:
-    """Install a crate"""
-    if crate_name in installed_crates:
-        installed_version = installed_crates[crate_name]
+def check_tool_installed(
+    tool_name: str,
+    tool_version: str,
+    force_install: bool,
+    installed_tools: dict[str, str],
+) -> bool:
+    installed_version = installed_tools.get(tool_name)
 
-        if installed_version == version:
-            logger.info(f"{crate_name} already installed at {version}")
-            return
+    if installed_version:
+        if installed_version == tool_version:
+            logger.info(f"{tool_name} already installed with {tool_version}")
+            return True
         else:
-            logger.info(
-                f"{crate_name} version mismatch "
-                f"(found: {installed_version}, expected: {version}). reinstalling..."
-            )
+            if force_install:
+                logger.warning(
+                    f"{tool_name} version mismatch "
+                    f"(found: {installed_version}, expected: {tool_version}). reinstalling..."
+                )
+            else:
+                logger.warning(
+                    f"{tool_name} version mismatch "
+                    f"(found: {installed_version}, expected: {tool_version})."
+                )
+            return force_install
     else:
-        logger.info(f"> {crate_name} not found, installing...")
+        logger.info(f"{tool_name} not found, installing...")
 
-    if cargo_binstall:
-        cargo_tool = "binstall"
-    else:
-        cargo_tool = "install"
+    return True
 
-    command = ["cargo", cargo_tool]
 
-    if cargo_binstall:
-        command.append("--no-confirm")
+class PrepareCommandProtocol(Protocol):
+    def __call__(
+        self,
+        *,
+        tool_name: str,
+        tool_version: str,
+        force_install: bool,
+        use_alternative_install: bool,
+    ) -> tuple[str, list[str]]:
+        """Prepare installation command for a specific source."""
+        return ("tool@version", [])
 
-    if force:
-        command.append("--force")
-    command.append(f"{crate_name}@{version}")
-    logger.info(f"Installing {crate_name}@{version}")
+
+def install_tool(
+    *,
+    tool_name: str,
+    tool_version: str,
+    force_install: bool,
+    dry_run: bool,
+    use_alternative_install: bool,
+    installed_tools: dict[str, str],
+    prepare_install_command: PrepareCommandProtocol,
+):
+    if not check_tool_installed(
+        tool_name, tool_version, force_install, installed_tools
+    ):
+        return False
+
+    versioned_tool, command = prepare_install_command(
+        tool_name=tool_name,
+        tool_version=tool_version,
+        force_install=force_install,
+        use_alternative_install=use_alternative_install,
+    )
+
+    logger.info(f"Installing {versioned_tool}")
 
     if dry_run:
         level = logging.WARN
@@ -214,36 +242,71 @@ def install_tool_crate(
         result = subprocess.run(command, check=True, text=True)
         result.check_returncode()
 
-    logger.info(f"Successfully installed {crate_name} version {version}")
+    logger.info(f"Successfully installed {tool_name} version {tool_version}")
+    return True
 
 
-DATA_SOURCE_PROCESSORS = {
-    "crate": install_tool_crate,
-}
-
-
-def install_tool(
+def prepare_rust_install_command(
+    *,
     tool_name: str,
-    version: str,
-    datasource: str,
-    force: bool,
-    dry_run: bool,
-    cargo_binstall: bool,
-    installed_crates: dict[Any, Any],
-) -> None:
-    install_function: Callable[..., None] | None = DATA_SOURCE_PROCESSORS.get(
-        datasource
-    )
+    tool_version: str,
+    force_install: bool,
+    use_alternative_install: bool,
+) -> tuple[str, list[str]]:
+    use_cargo_binstall = use_alternative_install
 
-    if install_function:
-        install_function(
-            tool_name, version, force, dry_run, cargo_binstall, installed_crates
-        )
+    if use_cargo_binstall:
+        cargo_tool = "binstall"
+    else:
+        cargo_tool = "install"
+
+    command = ["cargo", cargo_tool]
+
+    if use_cargo_binstall:
+        command.append("--no-confirm")
+
+    if force_install:
+        command.append("--force")
+
+    versioned_tool = f"{tool_name}@{tool_version}"
+    command.append(versioned_tool)
+
+    return (versioned_tool, command)
 
 
-def parse_installed_cargo(crates_toml: str) -> Iterator[tuple[str, str]]:
-    if not crates_toml:
-        return
+def prepare_python_install_command(
+    *,
+    tool_name: str,
+    tool_version: str,
+    force_install: bool,
+    use_alternative_install: bool,
+) -> tuple[str, list[str]]:
+    """Install Python package.
+
+    TODO: Forced installation is not yet supported, but checked.
+    """
+    use_python_uv = use_alternative_install
+
+    command = ["pip", "install"]
+    if use_python_uv:
+        command[0:0] = ["uv"]
+
+    if force_install:
+        logger.warning("Force install flag is not yet supported for Python packages")
+
+    versioned_tool = f"{tool_name}=={tool_version}"
+    command.append(versioned_tool)
+
+    return (versioned_tool, command)
+
+
+def list_installed_rust_tools() -> Iterator[tuple[str, str]]:
+    cargo_home = os.environ.get("CARGO_HOME")
+
+    if not cargo_home:
+        cargo_home = os.path.expanduser("~/.cargo")
+
+    crates_toml = os.path.join(cargo_home, ".crates.toml")
 
     if not os.path.exists(crates_toml):
         # fresh installation
@@ -262,38 +325,59 @@ def parse_installed_cargo(crates_toml: str) -> Iterator[tuple[str, str]]:
         yield (crate, version)
 
 
-def crates_toml():
-    cargo_home = os.environ.get("CARGO_HOME")
-    if not cargo_home:
-        cargo_home = os.path.expanduser("~/.cargo")
-    return os.path.join(cargo_home, ".crates.toml")
+def list_installed_python_packages(use_python_uv: bool) -> Iterator[tuple[str, str]]:
+    """List installed python packages"""
+    if False:
+        yield ("", "")
 
 
 def main() -> bool:
     args = parse_args()
 
     setup_logging(args.log_level)
-    installed_crates = dict(parse_installed_cargo(crates_toml()))
+
     logger.debug(f"Installing cargo tools from {args.toml_file}/{args.section}")
+    installed_rust_tools = dict(list_installed_rust_tools())
+    installed_python_packages = dict(list_installed_python_packages(args.use_python_uv))
 
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug("Installed cargo packages:")
-        for crate, version in installed_crates.items():
-            print(f"{crate} {version}")
-    tools = read_tools(args.toml_file, args.section, args.default_datasource)
+        for crate, version in installed_rust_tools.items():
+            logger.info(f"Installed rust crate {crate} {version}")
+
+        for package, version in installed_python_packages.items():
+            logger.info(f"Installed python package {package} {version}")
+
+    tools = read_tools(args.toml_file, args.section)
     if tools is None:
         return False
 
-    for tool_name, version, datasource in tools:
+    for tool_name, tool_version, source in tools:
+        installed_tools: dict[str, str]
+        prepare_install_command: PrepareCommandProtocol
+        use_alternative_install: bool
+
+        match source:
+            case "crate":
+                installed_tools = installed_rust_tools
+                prepare_install_command = prepare_rust_install_command
+                use_alternative_install = args.use_cargo_binstall
+            case "pypi":
+                installed_tools = installed_rust_tools
+                prepare_install_command = prepare_python_install_command
+                use_alternative_install = args.use_python_uv
+            case _:
+                logger.warning(f"{tool_name}: Datasource is not supported")
+                continue
+
         try:
             install_tool(
                 tool_name=tool_name,
-                version=version,
-                datasource=datasource,
-                force=args.force_install,
+                tool_version=tool_version,
+                force_install=args.force_install,
                 dry_run=args.dry_run,
-                cargo_binstall=args.cargo_binstall,
-                installed_crates=installed_crates,
+                use_alternative_install=use_alternative_install,
+                installed_tools=installed_tools,
+                prepare_install_command=prepare_install_command,
             )
         except subprocess.CalledProcessError:
             return False

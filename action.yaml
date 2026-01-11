@@ -1,7 +1,7 @@
 ---
-name: Simple install Rust tools (with binstall)
-description: Installs cargo tools listed in a TOML file using cargo-binstall
-author: you
+name: CI tools installation
+description: Installs Rust and Python tools listed in a TOML file
+author: Eir Nym
 
 inputs:
   tools-file:
@@ -11,10 +11,19 @@ inputs:
   section:
     description: TOML section to use (e.g. "tools", "tools.dev")
     required: false
-    default: tools
-  force:
+  use-cargo-binstall:
     type: boolean
-    description: Force reinstall tool even if already installed
+    description: Use `cargo binstall` to install Rust tools
+    required: false
+    default: true
+  use-python-uv:
+    type: boolean
+    description: Use `uv` to install Python tools
+    required: false
+    default: true
+  force-install:
+    type: boolean
+    description: Force reinstall tool even if it is already installed
     required: false
     default: false
   dry-run:
@@ -22,11 +31,6 @@ inputs:
     description: Don't actually install anything. Command will be printed out
     required: false
     default: false
-  cargo-binstall:
-    type: boolean
-    description: Use `cargo binstall` to install Rust tools
-    required: false
-    default: true
   log-level:
     type: choice
     description: Action logging level
@@ -40,44 +44,40 @@ inputs:
 runs:
   using: composite
   steps:
-  - name: Install cargo-binstall
-    if: ${{ inputs.cargo-binstall }}
-    uses: cargo-bins/cargo-binstall@v1.16.6
-
   - name: Install tools from tools file using cargo-binstall
     shell: bash
     run: |
-      case "${{ inputs.force }}" in
-      true) force_flag=_;;
-      *) unset force_flag;;
+      case "${{ inputs.use-cargo-binstall }}" in
+      true) use_cargo_binstall=true ;;
+      *) unset use_cargo_binstall ;;
+      esac
+
+      case "${{ inputs.use-python-uv }}" in
+      true) use_python_uv=true ;;
+      *) unset use_python_uv ;;
+      esac
+
+      case "${{ inputs.force-install }}" in
+      true) force_install=true ;;
+      *) unset force_install ;;
       esac
 
       case "${{ inputs.dry-run }}" in
-      true) dry_run=_;;
-      *) unset dry_run;;
-      esac
-
-      case "${{ inputs.quiet }}" in
-      true) quiet=_;;
-      *) unset quiet;;
-      esac
-
-      case "${{ inputs.cargo-binstall }}" in
-      true) cargo_binstall=_;;
-      *) unset cargo_binstall;;
+      true) dry_run=true ;;
+      *) unset dry_run ;;
       esac
 
       case "$RUNNER_DEBUG" in
-      true) log_level="debug";;
-      *) log_level=${{ inputs.log-level}};;
+      true) log_level="debug" ;;
+      *) log_level=${{ inputs.log-level}} ;;
       esac
 
       python "${{ github.action_path }}/entrypoint.py" \
         --default-datasource "${{ inputs.default-datasource }}" \
-        ${force_flag:+--force-install} \
+        ${force_install:+--force-install} \
         ${dry_run:+--dry-run} \
-        ${quiet:+--quiet} \
-        ${cargo_binstall:+--cargo-binstall} \
+        ${use_cargo_binstall:+--use-cargo-binstall} \
+        ${use_python_uv:+--use-python-uv} \
         --log-level $log_level \
         "${{ inputs.tools-file }}" \
         "${{ inputs.section }}"
