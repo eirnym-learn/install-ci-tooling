@@ -3,7 +3,7 @@
   "customManagers": [
     {
       "customType": "jsonata",
-      "description": "CI Tools (tool=version or tool={version, datasource})",
+      "description": "workflows prek",
       "fileFormat": "toml",
       "managerFilePatterns": [
         "/(^|/)\\.github/workflows/.*\\.toml$/"

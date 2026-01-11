@@ -3,8 +3,7 @@
   "customManagers": [
     {
       "customType": "jsonata",
-      "datasourceTemplate": "crate",
-      "description": "CI Tools (tool=version or tool={version, datasource})",
+      "description": "CI Tools (tool={version, source})",
       "fileFormat": "toml",
       "managerFilePatterns": [
         "/(^|/)\\.github/ci-tools\\.toml$/"
