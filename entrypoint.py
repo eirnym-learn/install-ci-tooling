@@ -9,7 +9,7 @@ import sys
 import tomllib
 from typing import Any, Protocol
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 # normal for Rust crates, quite restrictive for others
 VERSION_PATTERN = re.compile(
@@ -233,7 +233,7 @@ def install_tool(
     if dry_run:
         level = logging.WARN
     else:
-        level = logging.INFO
+        level = logging.DEBUG
 
     if logger.isEnabledFor(level):
         logger.log(level, f"Running install command: {' '.join(command)!r}")
@@ -327,8 +327,9 @@ def list_installed_rust_tools() -> Iterator[tuple[str, str]]:
 
 def list_installed_python_packages(use_python_uv: bool) -> Iterator[tuple[str, str]]:
     """List installed python packages"""
+
     if False:
-        yield ("", "")
+        yield  # not reachable
 
 
 def main() -> bool:
