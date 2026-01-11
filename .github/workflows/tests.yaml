@@ -17,14 +17,14 @@ on:
     - action.yaml
     - endpoint.py
     - tests.py
-    - .github/workflows/ci.yaml
+    - .github/workflows/tests.yaml
     - .github/ci-tools.toml
   pull_request:
     paths:
     - action.yaml
     - endpoint.py
     - tests.py
-    - .github/workflows/ci.yaml
+    - .github/workflows/tests.yaml
     - .github/ci-tools.toml
 
 concurrency:
