@@ -233,7 +233,7 @@ def install_tool(
     if dry_run:
         level = logging.WARN
     else:
-        level = logging.DEBUG
+        level = logging.INFO
 
     if logger.isEnabledFor(level):
         logger.log(level, f"Running install command: {' '.join(command)!r}")
