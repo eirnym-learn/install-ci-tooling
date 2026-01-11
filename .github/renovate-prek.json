@@ -9,7 +9,7 @@
         "/(^|/)\\.github/workflows/.*\\.ya?ml$/"
       ],
       "matchStrings": [
-        "$map(,  jobs.*.steps[$match(uses, /^j178/prek-action@.*/)].with.`prek-version`,,  function($version) {,    {,      \"depName\": \"prek\",,      \"datasource\": \"crate\",,      \"version\": $version,    },  },)"
+        "$map(\n  jobs.*.steps[$match(uses, /^j178/prek-action@.*/)].with.`prek-version`,\n  function($version) {\n    {\n      \"depName\": \"prek\",\n      \"datasource\": \"crate\",\n      \"version\": $version\n    }\n  }\n)"
       ],
       "versioningTemplate": "semver"
     }
