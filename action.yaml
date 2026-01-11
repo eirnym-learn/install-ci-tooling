@@ -10,7 +10,6 @@ inputs:
     default: .github/ci-tools.toml
   section:
     description: TOML section to use (e.g. "tools", "tools.dev")
-    required: false
   use-cargo-binstall:
     type: boolean
     description: Use `cargo binstall` to install Rust tools

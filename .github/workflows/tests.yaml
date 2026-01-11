@@ -46,6 +46,8 @@ jobs:
       uses: cargo-bins/cargo-binstall@v1.16.6
     - name: Self test action
       uses: ./
+      with:
+        section: ci
     - name: Action test
       run: |
         if ! command -v fd; then
