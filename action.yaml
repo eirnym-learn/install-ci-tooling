@@ -47,8 +47,11 @@ runs:
     shell: bash
     run: |
       log_level=${{ inputs.log-level}}
-      if (( ${+RUNNER_DEBUG} )) setopt XTRACE;
-      if (( ${+RUNNER_DEBUG} )) log_level=debug;
+      if (( ${+RUNNER_DEBUG} )); then
+        setopt XTRACE;
+        log_level=debug;
+      fi
+
 
       case "${{ inputs.use-cargo-binstall }}" in
       true) use_cargo_binstall=true ;;
