@@ -15,7 +15,7 @@
         "/(^|/)\\.github/workflows/.*\\.ya?ml$/"
       ],
       "matchStrings": [
-        "*.jobs.*.steps[$match(uses, /^j178/prek-action@.*/) and with.`prek-version`].{ \"depName\": \"prek\", \"currentValue\": with.`prek-version`, \"datasource\": \"crate\", \"versioning\": \"semver\" }"
+        "*.jobs.*.steps[$contains(uses, \"j178/prek-action\") and with.`prek-version`].{ \"depName\": \"prek\", \"currentValue\": with.`prek-version`, \"datasource\": \"crate\", \"versioning\": \"semver\" }"
       ],
       "versioningTemplate": "semver"
     }
