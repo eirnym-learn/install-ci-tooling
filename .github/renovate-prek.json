@@ -6,7 +6,7 @@
       "description": "workflows prek",
       "fileFormat": "toml",
       "managerFilePatterns": [
-        "/(^|/)\\.github/workflows/.*\\.toml$/"
+        "/(^|/)\\.github/workflows/.*\\.ya?ml$/"
       ],
       "matchStrings": [
         "{\n  \"depName\": \"prek\",\n  \"currentValue\": $.jobs.*.steps[$match(uses, /^j178/prek-action@.*/)].with.`prek-version`\n}"
