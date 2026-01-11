@@ -1,6 +1,6 @@
 [ci]
 fd-find = { version = "10.3.0", source = "crate" }
-pytest = { version = "8.0.2", source = "pypi" }
+pytest = { version = "8.4.2", source = "pypi" }
 pytest-xdist = { version = "3.8.0", source = "pypi" }
 pytest-random-order = { version = "1.2.0", source = "pypi" }
 
