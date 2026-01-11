@@ -43,7 +43,7 @@ jobs:
     - name: Install cargo-binstall
       uses: cargo-bins/cargo-binstall@v1.16.6
     - name: Install uv
-      uses: astral-sh/setup-uv@0.9.24
+      uses: astral-sh/setup-uv@v1.0.7
     - name: Self test action
       uses: ./
       with:
