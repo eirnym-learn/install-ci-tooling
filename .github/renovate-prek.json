@@ -3,7 +3,7 @@
   "customManagers": [
     {
       "customType": "jsonata",
-      "description": "workflows prek",
+      "description": "Prek version defined in workflows",
       "fileFormat": "yaml",
       "managerFilePatterns": [
         "/(^|/)\\.github/workflows/.*\\.ya?ml$/"
