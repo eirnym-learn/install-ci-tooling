@@ -48,13 +48,8 @@ runs:
     run: |
       log_level=${{ inputs.log-level}}
 
-      case "$RUNNER_DEBUG" in
-      true) setopt XTRACE; log_level=debug ;;
-      *)  ;;
-      esac
-
-      case "$ACTIONS_RUNNER_DEBUG" in
-      true) setopt XTRACE; log_level=debug ;;
+      case "$RUNNER_DEBUG$ACTIONS_STEP_DEBUG$ACTIONS_RUNNER_DEBUG" in
+      *true*) setopt XTRACE; log_level=debug ;;
       *)  ;;
       esac
 
