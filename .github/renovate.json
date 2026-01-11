@@ -6,24 +6,11 @@
     "rangeStrategy": "bump"
   },
   "configMigration": true,
-  "customManagers": [
-    {
-      "customType": "jsonata",
-      "description": "workflows prek",
-      "fileFormat": "yaml",
-      "managerFilePatterns": [
-        "/(^|/)\\.github/workflows/.*\\.ya?ml$/"
-      ],
-      "matchStrings": [
-        "*.jobs.*.steps[$contains(uses, \"j178/prek-action\") and with.`prek-version`].{ \"depName\": \"prek\", \"currentValue\": with.`prek-version`, \"datasource\": \"crate\", \"versioning\": \"semver\" }"
-      ],
-      "versioningTemplate": "semver"
-    }
-  ],
   "enabled": true,
   "extends": [
     "config:recommended",
-    "github>eirnym-learn/act-tooling//.github/renovate-ci-tools.json"
+    "github>eirnym-learn/act-tooling//.github/renovate-ci-tools.json",
+    "github>eirnym-learn/act-tooling//.github/renovate-prek.json"
   ],
   "osvVulnerabilityAlerts": true,
   "pre-commit": {
