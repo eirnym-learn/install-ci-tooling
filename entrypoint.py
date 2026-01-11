@@ -334,6 +334,8 @@ def list_installed_python_packages(use_python_uv: bool) -> Iterator[tuple[str, s
 def main() -> bool:
     args = parse_args()
 
+    print(args)
+
     setup_logging(args.log_level)
 
     logger.debug(f"Installing cargo tools from {args.toml_file}/{args.section}")
