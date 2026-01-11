@@ -3,6 +3,7 @@ import subprocess
 import pytest
 import os
 import re
+import shlex
 
 # Minimal .crates.toml to check against
 _crates_index = "https://github.com/rust-lang/crates.io-index"
@@ -193,7 +194,7 @@ def test_positive(
             unsupported = None
 
         if install_tool:
-            cmd = install_tool.split()
+            cmd = shlex.split(install_tool)
 
             assert len(expected_tools) > expected_tool_idx, expected_tools
             expected_tool = expected_tools[expected_tool_idx]
