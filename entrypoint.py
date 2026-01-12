@@ -36,13 +36,11 @@ def parse_args():
     parser.add_argument(
         "--rust-install-method",
         help="Method to install Rust tools",
-        default="prefer-binstall",
         choices=RUST_INSTALL_METHODS,
     )
     parser.add_argument(
         "--python-install-method",
         help="Method to install Python tools",
-        default="prefer-uv",
         choices=PYTHON_INSTALL_METHODS,
     )
     parser.add_argument("--force-install", help="Force reinstall", action="store_true")

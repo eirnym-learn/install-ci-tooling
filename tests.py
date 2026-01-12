@@ -7,13 +7,6 @@ import shlex
 import shutil
 import stat
 
-try:
-    from icecream import ic
-except ImportError:
-
-    def ic(*args, **kwargs): ...
-
-
 # Minimal .crates.toml to check against
 _crates_index = "https://github.com/rust-lang/crates.io-index"
 crates_toml = f"""
@@ -119,11 +112,9 @@ def execute_command(
         "--dry-run",
     ]
 
-    if rust_install_method:
-        command_args.extend(("--rust-install-method", rust_install_method))
+    command_args.extend(("--rust-install-method", rust_install_method))
 
-    if python_install_method:
-        command_args.extend(("--python-install-method", python_install_method))
+    command_args.extend(("--python-install-method", python_install_method))
 
     if force_install:
         command_args.append("--force-install")
@@ -161,9 +152,9 @@ def execute_command(
 @pytest.mark.parametrize("has_crates_toml", (True, False))
 @pytest.mark.parametrize("unknown_section", (True, False))
 @pytest.mark.parametrize(
-    "rust_install_method", (None, "prefer-binstall", "binstall", "install")
+    "rust_install_method", ("prefer-binstall", "binstall", "install")
 )
-@pytest.mark.parametrize("python_install_method", (None, "prefer-uv", "uv", "pip"))
+@pytest.mark.parametrize("python_install_method", ("prefer-uv", "uv", "pip"))
 @pytest.mark.parametrize("has_cargo_binstall", (True, False))
 @pytest.mark.parametrize("has_python_uv", (True, False))
 @pytest.mark.parametrize("force_install", (True, False))
@@ -206,10 +197,10 @@ def test_positive(
     setup_tools_toml(tool_file, section_data, unknown_section, raw=False)
 
     use_cargo_binstall = rust_install_method == "binstall" or (
-        has_cargo_binstall and rust_install_method in (None, "prefer-binstall")
+        has_cargo_binstall and rust_install_method == "prefer-binstall"
     )
     use_python_uv = python_install_method == "uv" or (
-        has_python_uv and python_install_method in (None, "prefer-uv")
+        has_python_uv and python_install_method == "prefer-uv"
     )
 
     (code, stdout, stderr) = execute_command(
@@ -222,9 +213,6 @@ def test_positive(
     )
     assert len(stdout) == 0
     assert code == 0
-
-    ic(has_cargo_binstall, rust_install_method, use_cargo_binstall)
-    ic(has_python_uv, python_install_method, use_python_uv)
 
     warning_python_force_flag_met = False
     python_list_cmd_met = False
@@ -253,10 +241,13 @@ def test_positive(
         unsupported = re.sub(
             "^.* \\[WARNING] ([^:]+): Datasource is not supported$", "\\1", line
         )
+
         if pip_list == line:
             pip_list = None
+
         if install_tool == line:
             install_tool = None
+
         if unsupported == line:
             unsupported = None
 
@@ -390,8 +381,8 @@ def test_negative(
     (code, stdout, stderr) = execute_command(
         cargo_home,
         tool_file,
-        rust_install_method=None,
-        python_install_method=None,
+        rust_install_method="prefer-binstall",
+        python_install_method="prefer-uv",
         force_install=True,
         limit_bin_to=None,
     )
