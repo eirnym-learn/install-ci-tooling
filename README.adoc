@@ -114,3 +114,6 @@ This action is designed to install different toolsets for different occasions an
 +
 Binary tools are fine, but action release and usage would be harder.
 _Practicality always beats purity_ (from Zen Of Python).
+* _Why not to use xxx action to install_
++
+Mostly because of lack of easy setup for RenovateBot and different sources.
