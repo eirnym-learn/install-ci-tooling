@@ -1,0 +1,50 @@
+== Selected FAQ
+
+* _User knows better what to request to install_
++
+Action installs *exact* versions requested.
+* _User knows better what tooling to use and how to use it_
++
+Action assume all required tooling is installed and ready to use.
++
+If a tool requires additional parameters which can be passed via environment, it's user's responsibility to pass these parameters.
++
+The only parameters passed by default is to make installation unattended.
+* _User knows better how to cache installed tools_
++
+No additional caching provided.
+* _Default tool filepath is hardcoded_
++
+Propose new file path to the link:.github/renovate-ci-tools.json[.github/renovate-ci-tools.json] file.
+* _Tools must have exact versions_
++
+There's no software which will never break your workflow on an update, also new version will break your caches.
++
+Setup a bot which will update tools for free or do it yourself if organisation doesn't support it.
+* _Tool lines should be updatable_
++
+To update versions one can use RenovateBot as described in link:.github/renovate-ci-tools.json[.github/renovate-ci-tools.json] file. This configuration snippet is ready to be included in your RenovateBot config.
++
+If custom source is about to be added and it is not supported by https://docs.renovatebot.com/modules/datasource/[RenovateBot], jsonata rule should be modified to support or ignored.
++
+Dependabot https://github.com/dependabot/feedback/issues/154[doesn't seem to support] regex matches.
+* _Tools outside any sections or subsections are not supported_
++
+Yes, and there's no plan to support at the moment.
+Section names are not
+* _Version of a tool is not supporeted by a regex_
++
+Propose an upgrade to regex and the schema. Even better if there will be a test for it.
+* _Tool or version conflicting with the rest of the project_
++
+This tool is not a package manager. _User knows better what to request to install_
+* _Support another existing file format_
++
+This action is designed to install different toolsets for different occasions and initially was only about installing Rust tools, and Python support was added to reduce amount of files to setup.
+* _Rewrite this tool in Rust(or go or another language)_
++
+Binary tools are fine, but action release and usage would be harder.
+_Practicality always beats purity_ (from Zen Of Python).
+* _Why not to use xxx action to install_
++
+Mostly because of lack of easy setup for RenovateBot and different sources.
