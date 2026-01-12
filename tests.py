@@ -4,6 +4,15 @@ import pytest
 import os
 import re
 import shlex
+import shutil
+import stat
+
+try:
+    from icecream import ic
+except ImportError:
+
+    def ic(*args, **kwargs): ...
+
 
 # Minimal .crates.toml to check against
 _crates_index = "https://github.com/rust-lang/crates.io-index"
@@ -70,12 +79,34 @@ def setup_tools_toml(
                 f.write(SECTION_NEVER_INSTALLED)
 
 
+def setup_bin_folder(
+    bin_folder: pathlib.Path, has_cargo_binstall: bool, has_python_uv: bool
+):
+    def link_cmd(cmd: str):
+        src = shutil.which(cmd)
+        if src:
+            os.symlink(src, bin_folder / cmd)
+
+    bin_folder.mkdir()
+
+    link_cmd("python")
+    link_cmd("python3")
+
+    if has_python_uv:
+        pathlib.Path(bin_folder / "uv").touch()
+        os.chmod(bin_folder / "uv", stat.S_IXUSR)
+    if has_cargo_binstall:
+        pathlib.Path(bin_folder / "cargo-binstall").touch()
+        os.chmod(bin_folder / "cargo-binstall", stat.S_IXUSR)
+
+
 def execute_command(
     cargo_home: pathlib.Path,
     tool_file: pathlib.Path,
-    use_cargo_binstall: bool,
-    use_python_uv: bool,
+    rust_install_method: str | None,
+    python_install_method: str,
     force_install: bool,
+    limit_bin_to: pathlib.Path | None,
     *args: str,
 ):
     """Execute command in debug mode.
@@ -88,11 +119,11 @@ def execute_command(
         "--dry-run",
     ]
 
-    if use_cargo_binstall:
-        command_args.append("--use-cargo-binstall")
+    if rust_install_method:
+        command_args.extend(("--rust-install-method", rust_install_method))
 
-    if use_python_uv:
-        command_args.append("--use-python-uv")
+    if python_install_method:
+        command_args.extend(("--python-install-method", python_install_method))
 
     if force_install:
         command_args.append("--force-install")
@@ -102,10 +133,16 @@ def execute_command(
 
     command_args.extend((str(tool_file), SECTION))
 
-    print(" ".join(command_args))
-
     env = os.environ.copy()
     env["CARGO_HOME"] = str(cargo_home)
+    print(f" CARGO_HOME={env['CARGO_HOME']}", end=" ")
+    if limit_bin_to is not None:
+        env["PATH"] = (
+            f"{limit_bin_to}:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin"
+        )
+        print(f"PATH={env['PATH']}", end=" ")
+
+    print(" ".join(command_args))
     result = subprocess.run(
         command_args,
         check=False,
@@ -123,8 +160,12 @@ def execute_command(
 
 @pytest.mark.parametrize("has_crates_toml", (True, False))
 @pytest.mark.parametrize("unknown_section", (True, False))
-@pytest.mark.parametrize("use_cargo_binstall", (True, False))
-@pytest.mark.parametrize("use_python_uv", (True, False))
+@pytest.mark.parametrize(
+    "rust_install_method", (None, "prefer-binstall", "binstall", "install")
+)
+@pytest.mark.parametrize("python_install_method", (None, "prefer-uv", "uv", "pip"))
+@pytest.mark.parametrize("has_cargo_binstall", (True, False))
+@pytest.mark.parametrize("has_python_uv", (True, False))
 @pytest.mark.parametrize("force_install", (True, False))
 @pytest.mark.parametrize(
     "section_data,expected_tools,unsupported_tools",
@@ -144,8 +185,10 @@ def test_positive(
     unsupported_tools: list[str],
     has_crates_toml: bool,
     unknown_section: bool,
-    use_cargo_binstall: bool,
-    use_python_uv: bool,
+    rust_install_method: str,
+    python_install_method: str,
+    has_cargo_binstall: bool,
+    has_python_uv: bool,
     force_install: bool,
     tmpdir: pathlib.Path,
 ):
@@ -153,41 +196,65 @@ def test_positive(
     unsupported_tools = list(unsupported_tools)
     expected_tool_idx = 0
     unsupported_tool_idx = 0
+
     cargo_home = tmpdir / ".cargo"
     tool_file = tmpdir / "tools.toml"
+    bin_folder = tmpdir / "bin"
 
+    setup_bin_folder(bin_folder, has_cargo_binstall, has_python_uv)
     setup_cargo_home(cargo_home, has_crates_toml)
     setup_tools_toml(tool_file, section_data, unknown_section, raw=False)
+
+    use_cargo_binstall = rust_install_method == "binstall" or (
+        has_cargo_binstall and rust_install_method in (None, "prefer-binstall")
+    )
+    use_python_uv = python_install_method == "uv" or (
+        has_python_uv and python_install_method in (None, "prefer-uv")
+    )
 
     (code, stdout, stderr) = execute_command(
         cargo_home,
         tool_file,
-        use_cargo_binstall,
-        use_python_uv,
+        rust_install_method,
+        python_install_method,
         force_install,
+        limit_bin_to=bin_folder,
     )
     assert len(stdout) == 0
     assert code == 0
 
-    warning_python_force_flag = False
+    ic(has_cargo_binstall, rust_install_method, use_cargo_binstall)
+    ic(has_python_uv, python_install_method, use_python_uv)
 
+    warning_python_force_flag_met = False
+    python_list_cmd_met = False
     for line in stderr.splitlines():
         assert "[ERROR]" not in line
         if "[DEBUG]" in line or "[INFO]" in line:
             continue
 
-        warning_python_force_flag = warning_python_force_flag or line.endswith(
+        warning_python_force_flag = line.endswith(
             "[WARNING] Force install flag is not yet supported for Python packages"
         )
 
         if warning_python_force_flag:
+            assert not warning_python_force_flag_met
+            warning_python_force_flag_met = True
+
+        if warning_python_force_flag_met:
             continue
+
+        pip_list = re.sub(
+            "^.* \\[WARNING] List python packages using command: '(.*)'$", "\\1", line
+        )
         install_tool = re.sub(
             "^.* \\[WARNING] Running install command: '(.*)'$", "\\1", line
         )
         unsupported = re.sub(
             "^.* \\[WARNING] ([^:]+): Datasource is not supported$", "\\1", line
         )
+        if pip_list == line:
+            pip_list = None
         if install_tool == line:
             install_tool = None
         if unsupported == line:
@@ -215,6 +282,12 @@ def test_positive(
                     )
                 case _:
                     assert False, f"{cmd[0]} is unsupported: {install_tool!r}"
+        if pip_list:
+            assert not python_list_cmd_met
+            python_list_cmd_met = True
+            cmd = shlex.split(pip_list)
+
+            check_python_list(cmd, use_python_uv)
 
         if unsupported:
             assert len(unsupported_tools) > unsupported_tool_idx, unsupported_tools
@@ -266,6 +339,13 @@ def check_python_install(
         assert warning_python_force_flag, "Warning hasn't been met"
 
 
+def check_python_list(cmd: list[str], use_python_uv: bool):
+    if use_python_uv:
+        assert cmd == ["uv", "pip", "list", "--format=freeze", "-q"]
+    else:
+        assert cmd == ["pip", "list", "--format=freeze"]
+
+
 @pytest.mark.parametrize(
     "section_data,expected_error",
     (
@@ -310,9 +390,10 @@ def test_negative(
     (code, stdout, stderr) = execute_command(
         cargo_home,
         tool_file,
-        use_cargo_binstall=True,
-        use_python_uv=True,
+        rust_install_method=None,
+        python_install_method=None,
         force_install=True,
+        limit_bin_to=None,
     )
     assert len(stdout) == 0
     assert code != 0

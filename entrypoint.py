@@ -248,8 +248,7 @@ def install_tool(
         logger.log(level, f"Running install command: {' '.join(command)!r}")
 
     if not dry_run:
-        result = subprocess.run(command, check=True, text=True)
-        result.check_returncode()
+        subprocess.run(command, check=True, text=True)
 
     logger.info(f"Successfully installed {tool_name} version {tool_version}")
     return True
@@ -302,6 +301,7 @@ def prepare_python_install_command(
 
     TODO: Forced installation is not yet supported, but checked.
     """
+    global warning_python_force_install_met
     use_python_uv: bool
     match install_method:
         case "prefer-uv":
@@ -322,8 +322,9 @@ def prepare_python_install_command(
     else:
         command = ["pip", "install"]
 
-    if force_install:
+    if force_install and not warning_python_force_install_met:
         logger.warning("Force install flag is not yet supported for Python packages")
+        warning_python_force_install_met = True
 
     versioned_tool = f"{tool_name}=={tool_version}"
     command.append(versioned_tool)
@@ -354,7 +355,7 @@ def list_installed_rust_tools() -> Iterable[tuple[str, str]]:
     result = []
     for key in data.keys():
         split = key.split(" ", 2)
-        if len(split < 2):
+        if len(split) < 2:
             logger.warning(f"Unable to parse {crates_toml}")
             return ()
         (crate, version, _) = split
@@ -384,9 +385,9 @@ def list_installed_python_packages(
             return ()
 
     if use_python_uv:
-        command = ["uv", "pip", "list", "format=freeze", "-q"]
+        command = ["uv", "pip", "list", "--format=freeze", "-q"]
     else:
-        command = ["pip", "list", "format=freeze"]
+        command = ["pip", "list", "--format=freeze"]
 
     if dry_run:
         level = logging.WARN
@@ -394,26 +395,32 @@ def list_installed_python_packages(
         level = logging.DEBUG
 
     if logger.isEnabledFor(level):
-        logger.log(level, f"Running pip list command: {' '.join(command)!r}")
+        logger.log(level, f"List python packages using command: {' '.join(command)!r}")
 
-    cmd_result = subprocess.run(command, check=True, text=True)
-    cmd_result.check_returncode()
+    if dry_run:
+        return ()
 
-    result: list[tuple[str, str]] = list(
-        map(lambda line: line.split("=="), cmd_result.stdout.splitlines())
-    )
-    for item in result:
-        if len(item) != 2:
+    cmd_result = subprocess.run(command, check=True, text=True, stdout=subprocess.PIPE)
+
+    result = []
+
+    for line in cmd_result.stdout.splitlines():
+        split = line.split("==")
+        if len(split) != 2:
             logger.warning("Unable to parse python installed packages")
             return ()
+        result.append(split)
     return result
+
+
+warning_python_force_install_met = False
 
 
 def main() -> bool:
     args = parse_args()
 
     setup_logging(args.log_level)
-
+    # logger.error(args)
     logger.info(f"Installing cargo tools from {args.toml_file}/{args.section}")
     installed_rust_tools = dict(list_installed_rust_tools())
     installed_python_packages = dict(
