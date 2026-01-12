@@ -423,7 +423,7 @@ def main() -> bool:
         if not check_tool_installed(
             tool_name, tool_version, args.force_install, installed_tools
         ):
-            return False
+            continue
 
         try:
             run_install_tool(
