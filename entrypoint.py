@@ -420,10 +420,10 @@ def main() -> bool:
                 logger.warning(f"{tool_name}: Datasource is not supported")
                 continue
 
-        if not check_tool_installed(
+        if check_tool_installed(
             tool_name, tool_version, args.force_install, installed_tools
         ):
-            continue
+            continue  # Do nothing at this point
 
         try:
             run_install_tool(
