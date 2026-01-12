@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-from collections.abc import Iterator
+from collections.abc import Iterable
 import argparse
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -26,19 +27,23 @@ VERSION_PATTERN = re.compile(
 )
 TOOL_NAME_PATTERN = re.compile(r"[a-zA-Z0-9](?:[a-zA-Z0-9._-]+[a-zA-Z0-9])?")
 KNOWN_LOG_LEVELS = ("error", "warn", "info", "debug")
+RUST_INSTALL_METHODS = ("prefer-binstall", "binstall", "install")
+PYTHON_INSTALL_METHODS = ("prefer-uv", "uv", "pip")
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Simple install for CI tooling")
     parser.add_argument(
-        "--use-cargo-binstall",
-        help="Use `cargo binstall` to install Rust tools",
-        action="store_true",
+        "--rust-install-method",
+        help="Method to install Rust tools",
+        default="prefer-binstall",
+        choices=RUST_INSTALL_METHODS,
     )
     parser.add_argument(
-        "--use-python-uv",
-        help="Use `uv` to install Python tools",
-        action="store_true",
+        "--python-install-method",
+        help="Method to install Python tools",
+        default="prefer-uv",
+        choices=PYTHON_INSTALL_METHODS,
     )
     parser.add_argument("--force-install", help="Force reinstall", action="store_true")
     parser.add_argument(
@@ -200,8 +205,8 @@ class PrepareCommandProtocol(Protocol):
         tool_name: str,
         tool_version: str,
         force_install: bool,
-        use_alternative_install: bool,
-    ) -> tuple[str, list[str]]:
+        install_method: str,
+    ) -> tuple[str, list[str]] | None:
         """Prepare installation command for a specific source."""
         return ("tool@version", [])
 
@@ -212,7 +217,7 @@ def install_tool(
     tool_version: str,
     force_install: bool,
     dry_run: bool,
-    use_alternative_install: bool,
+    install_method: str,
     installed_tools: dict[str, str],
     prepare_install_command: PrepareCommandProtocol,
 ):
@@ -221,12 +226,16 @@ def install_tool(
     ):
         return False
 
-    versioned_tool, command = prepare_install_command(
+    prepare_result = prepare_install_command(
         tool_name=tool_name,
         tool_version=tool_version,
         force_install=force_install,
-        use_alternative_install=use_alternative_install,
+        install_method=install_method,
     )
+    if not prepare_result:
+        return False
+
+    versioned_tool, command = prepare_result
 
     logger.info(f"Installing {versioned_tool}")
 
@@ -251,19 +260,27 @@ def prepare_rust_install_command(
     tool_name: str,
     tool_version: str,
     force_install: bool,
-    use_alternative_install: bool,
-) -> tuple[str, list[str]]:
-    use_cargo_binstall = use_alternative_install
+    install_method: str,
+) -> tuple[str, list[str]] | None:
+    use_cargo_binstall: bool
+    match install_method:
+        case "prefer-binstall":
+            if shutil.which("cargo-binstall"):
+                use_cargo_binstall = True
+            else:
+                use_cargo_binstall = False
+        case "binstall":
+            use_cargo_binstall = True
+        case "install":
+            use_cargo_binstall = False
+        case _:
+            logger.error(f"Unknown installation method: {install_method}")
+            return None
 
     if use_cargo_binstall:
-        cargo_tool = "binstall"
+        command = ["cargo", "binstall", "--no-confirm"]
     else:
-        cargo_tool = "install"
-
-    command = ["cargo", cargo_tool]
-
-    if use_cargo_binstall:
-        command.append("--no-confirm")
+        command = ["cargo", "install"]
 
     if force_install:
         command.append("--force")
@@ -279,17 +296,31 @@ def prepare_python_install_command(
     tool_name: str,
     tool_version: str,
     force_install: bool,
-    use_alternative_install: bool,
-) -> tuple[str, list[str]]:
+    install_method: str,
+) -> tuple[str, list[str]] | None:
     """Install Python package.
 
     TODO: Forced installation is not yet supported, but checked.
     """
-    use_python_uv = use_alternative_install
+    use_python_uv: bool
+    match install_method:
+        case "prefer-uv":
+            if shutil.which("uv"):
+                use_python_uv = True
+            else:
+                use_python_uv = False
+        case "uv":
+            use_python_uv = True
+        case "pip":
+            use_python_uv = False
+        case _:
+            logger.error(f"Unknown installation method: {install_method}")
+            return None
 
-    command = ["pip", "install"]
     if use_python_uv:
-        command[0:0] = ["uv"]
+        command = ["uv", "pip", "install"]
+    else:
+        command = ["pip", "install"]
 
     if force_install:
         logger.warning("Force install flag is not yet supported for Python packages")
@@ -300,7 +331,7 @@ def prepare_python_install_command(
     return (versioned_tool, command)
 
 
-def list_installed_rust_tools() -> Iterator[tuple[str, str]]:
+def list_installed_rust_tools() -> Iterable[tuple[str, str]]:
     cargo_home = os.environ.get("CARGO_HOME")
 
     if not cargo_home:
@@ -310,7 +341,7 @@ def list_installed_rust_tools() -> Iterator[tuple[str, str]]:
 
     if not os.path.exists(crates_toml):
         # fresh installation
-        return
+        return ()
 
     with open(crates_toml) as f:
         data = tomllib.loads(f.read())
@@ -318,18 +349,64 @@ def list_installed_rust_tools() -> Iterator[tuple[str, str]]:
     data = data.get("v1")
 
     if not data:
-        return
+        return ()
 
+    result = []
     for key in data.keys():
-        (crate, version, _) = key.split(" ", 2)
-        yield (crate, version)
+        split = key.split(" ", 2)
+        if len(split < 2):
+            logger.warning(f"Unable to parse {crates_toml}")
+            return ()
+        (crate, version, _) = split
+        result.append((crate, version))
+
+    return result
 
 
-def list_installed_python_packages(use_python_uv: bool) -> Iterator[tuple[str, str]]:
+def list_installed_python_packages(
+    install_method: str, dry_run: bool
+) -> Iterable[tuple[str, str]]:
     """List installed python packages"""
+    # currently it's unimplemented
+    use_python_uv: bool
+    match install_method:
+        case "prefer-uv":
+            if shutil.which("uv"):
+                use_python_uv = True
+            else:
+                use_python_uv = False
+        case "uv":
+            use_python_uv = True
+        case "pip":
+            use_python_uv = False
+        case _:
+            logger.error(f"Unknown installation method: {install_method}")
+            return ()
 
-    if False:
-        yield  # not reachable
+    if use_python_uv:
+        command = ["uv", "pip", "list", "format=freeze", "-q"]
+    else:
+        command = ["pip", "list", "format=freeze"]
+
+    if dry_run:
+        level = logging.WARN
+    else:
+        level = logging.DEBUG
+
+    if logger.isEnabledFor(level):
+        logger.log(level, f"Running pip list command: {' '.join(command)!r}")
+
+    cmd_result = subprocess.run(command, check=True, text=True)
+    cmd_result.check_returncode()
+
+    result: list[tuple[str, str]] = list(
+        map(lambda line: line.split("=="), cmd_result.stdout.splitlines())
+    )
+    for item in result:
+        if len(item) != 2:
+            logger.warning("Unable to parse python installed packages")
+            return ()
+    return result
 
 
 def main() -> bool:
@@ -339,7 +416,9 @@ def main() -> bool:
 
     logger.info(f"Installing cargo tools from {args.toml_file}/{args.section}")
     installed_rust_tools = dict(list_installed_rust_tools())
-    installed_python_packages = dict(list_installed_python_packages(args.use_python_uv))
+    installed_python_packages = dict(
+        list_installed_python_packages(args.python_install_method, args.dry_run)
+    )
 
     if logger.isEnabledFor(logging.DEBUG):
         for crate, version in installed_rust_tools.items():
@@ -355,17 +434,17 @@ def main() -> bool:
     for tool_name, tool_version, source in tools:
         installed_tools: dict[str, str]
         prepare_install_command: PrepareCommandProtocol
-        use_alternative_install: bool
+        install_method: str
 
         match source:
             case "crate":
                 installed_tools = installed_rust_tools
                 prepare_install_command = prepare_rust_install_command
-                use_alternative_install = args.use_cargo_binstall
+                install_method = args.rust_install_method
             case "pypi":
                 installed_tools = installed_rust_tools
                 prepare_install_command = prepare_python_install_command
-                use_alternative_install = args.use_python_uv
+                install_method = args.python_install_method
             case _:
                 logger.warning(f"{tool_name}: Datasource is not supported")
                 continue
@@ -376,7 +455,7 @@ def main() -> bool:
                 tool_version=tool_version,
                 force_install=args.force_install,
                 dry_run=args.dry_run,
-                use_alternative_install=use_alternative_install,
+                install_method=install_method,
                 installed_tools=installed_tools,
                 prepare_install_command=prepare_install_command,
             )

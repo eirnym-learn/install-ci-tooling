@@ -10,16 +10,23 @@ inputs:
     default: .github/ci-tools.toml
   section:
     description: TOML section to use (e.g. "tools", "tools.dev")
-  use-cargo-binstall:
-    type: boolean
-    description: Use `cargo binstall` to install Rust tools
+  rust-install-method:
+    type: choice
+    description: Method to install Rust tools
     required: false
-    default: true
-  use-python-uv:
-    type: boolean
-    description: Use `uv` to install Python tools
+    default: prefer-binstall
+    options:
+    - prefer-binstall
+    - binstall
+    - install
+  python-install-method:
+    type: choice
+    description: Method to install Python packages
     required: false
-    default: true
+    options:
+    - prefer-uv
+    - uv
+    - pip
   force-install:
     type: boolean
     description: Force reinstall tool even if it is already installed
@@ -53,16 +60,6 @@ runs:
       *) log_level=${{ inputs.log-level}} ;;
       esac
 
-      case "${{ inputs.use-cargo-binstall }}" in
-      true) use_cargo_binstall=true ;;
-      *) unset use_cargo_binstall ;;
-      esac
-
-      case "${{ inputs.use-python-uv }}" in
-      true) use_python_uv=true ;;
-      *) unset use_python_uv ;;
-      esac
-
       case "${{ inputs.force-install }}" in
       true) force_install=true ;;
       *) unset force_install ;;
@@ -73,22 +70,11 @@ runs:
       *) unset dry_run ;;
       esac
 
-
-      # if [ "$log_level" == "debug" ]; then
-      echo "[DEBUG] RUNNER_DEBUG: $RUNNER_DEBUG"
-      echo "[DEBUG] ACTIONS_STEP_DEBUG: $ACTIONS_STEP_DEBUG"
-      echo "[DEBUG] ACTIONS_RUNNER_DEBUG: $ACTIONS_RUNNER_DEBUG"
-      echo "[DEBUG] log_level: $log_level"
-      echo "[DEBUG] force_install: $force_install"
-      echo "[DEBUG] use_python_uv: $use_python_uv"
-      echo "[DEBUG] use_cargo_binstall: $use_cargo_binstall"
-      # fi
-
       python "${{ github.action_path }}/entrypoint.py" \
         ${force_install:+--force-install} \
         ${dry_run:+--dry-run} \
-        ${use_cargo_binstall:+--use-cargo-binstall} \
-        ${use_python_uv:+--use-python-uv} \
+        --rust-install-method ${{ inputs.rust-install-method }}
+        --python-install-method ${{ inputs.python-install-method }}
         --log-level $log_level \
         "${{ inputs.tools-file }}" \
         "${{ inputs.section }}"
