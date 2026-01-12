@@ -35,6 +35,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+    - uses: actions/cache@v5.0.1
+      with:
+        path: |
+          ~/.cargo/bin
+          ~/.cargo/registry/index
+          ~/.cargo/registry/cache
+          ~/.cargo/git/db
+          ~/.cargo/.crates.toml
+          ~/.cargo/.crates2.json
+        key: ${{ runner.os }}-${{ inputs.cache-key }}-${{ hashFiles('.github/ci-tools.toml') }}
     - uses: actions/checkout@v6.0.1
     - name: Set up Python
       uses: actions/setup-python@v6.1.0
@@ -44,11 +54,12 @@ jobs:
       uses: cargo-bins/cargo-binstall@v1.16.6
     - name: Install uv
       uses: astral-sh/setup-uv@v7.2.0
-    - name: Self test action
+    - name: Install tools to test self using self-action
       uses: ./
       with:
         section: ci
       env:
+        # uv will install into system
         UV_SYSTEM_PYTHON: 1
     - name: Action test
       run: |
