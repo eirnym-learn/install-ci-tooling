@@ -1,0 +1,28 @@
+---
+$schema: https://json-schema.org/draft/2020-12/schema
+type: object
+description: TOML file definition for https://github.com/eirtools/tooling-installer-action
+$comment: User must directly to tell which sections to use.
+additionalProperties:
+  type: object
+  patternProperties:
+    ^[a-zA-Z0-9](?:[a-zA-Z0-9_-.]+[a-zA-Z0-9])?$:
+      type: object
+      description: |
+        Tool name which commonly could be found in Crates.io and Pypi.
+      properties:
+        version:
+          type: string
+          description: |
+            Specific version to install.
+          $comment: |
+            Regex supports some loosen subsets both of SemVer 2.0 (crates.io) and PEP440 (Python) with some corner cases omitted.
+          pattern: ^v?(?:\d+!)?(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*)){2}([-.][a-zA-Z]+(?:\.?\d+)?)?(?:\+[a-zA-Z]+(?:\.\d+)?)?$
+        source:
+          type: string
+          description: |
+            Currently supported data source kind to install from and be usable with RenovateBot.
+            Unsupported data source kinds will be ignored by installer and reported.
+          enum:
+          - crate
+          - pypi
