@@ -1,10 +1,25 @@
+:toc: preamble
 = Simple install for CI tooling
 
-Action to quick install multiple tools listed in a given TOML file and given section.
+CI action to quick install multiple development tools listed in a section of a TOML file.
 
-== Action configuration
+== Simple example
 
-.Adjustments
+.Simple example of `ci-tools.toml`
+[source, toml]
+-----
+[to-be-installed]
+fd-find = { version = "10.3.0", source = "crate"}
+pytest = { version = "9.0.2", source = "pypi"}
+
+[other-section]
+typos-cli = { version = "1.42.0", source = "crate" }
+-----
+
+If one will request to install tools from `to-be-installed` section, only https://lib.rs/crates/fd-find[fd-find] and https://pypi.org/project/pytest[pytest] will be installed. https://lib.rs/crates/typos-cli[typos-cli] will not be installed as not requested.
+
+== Configuration
+
 [options=header]
 |======
 | variable | description | Default value | notes
@@ -16,53 +31,86 @@ Action to quick install multiple tools listed in a given TOML file and given sec
 // -------------------
 | section
 | Section to use (e.g. "tools", "tools.dev")
-| tools
+|
 |
 // -------------------
-| force
+| force-install
 | Force reinstall tool even if already installed
 | false
 |
+  At the moment supported only by Rust installers as they break if another version is installed.
+  `pip` and `uv` just overwrite the installed packages.
 // -------------------
 | dry-run
 | Don't actually install anything
 | false
-| Install command will not be executed at all.
+| Any command will not be executed at all, just printed out.
 // -------------------
-| quiet
-| Be quiet
-| false
-| Install tool will produce normal output.
+| log-level
+| Set logging level to a desired level.
+| info
+| At the moment only sets level for action itself.
 // -------------------
-| cargo-binstall
-| Use `cargo binstall` to install cargo tools as binary packages
-| true
-| `cargo binstall` must be preinstalled.
+| rust-install-method
+| Use `cargo install` or `cargo binstall` to install a Rust tool
+| preferred-binstall
+|
 // -------------------
-| default-datasource
-| Default tool datasource.
-| `"crate"`
-| Currently known: `crate`.
-  Future extension to install from other sources
+| python-install-method
+| Use `pip` or `uv` to install a Python package
+| preferred-uv
+|
 // -------------------
 |======
 
-== Tooling TOML file contents
+== IDE Integrations
 
-Contents of tooling TOML file has following supported structure.
+link:.ci-tools-schema.yaml[Json Schema] is public to use.
 
-* All entries read by the action must be in a section
-* Each entry can be in form `package = "<version>"` or `package = { "version"="<version>", "datasource"="<datasource>"}`, where `datasource` key is optional.
+== Core philosophy and FAQ
 
-== Implementation notes and usage tips
-
-At the moment of writing there's following implementation assumptions
-
-* At the moment `crate` datasource is the only datasource to install from.
-* `crate` data source implementation obtains cargo home from environment variable `CARGO_HOME` defaulting to `~/.cargo`.
-* Sample RenovateBot config to update tooling can be found in `.github/renovate.json` file from this action repository. It will be upgraded in the future to cover features required.
-* To preinstall https://github.com/cargo-bins/cargo-binstall[`cargo-binstall`] consult with their documentation.
-* Run script in debug mode to see what exact command will be running to install package
-* Invalid values are ignored at the moment. They will raise errors in the future
-* `dry-run` is not implemented everywhere, thus implementation is just to skip it.
-* Debug mode will not increase install tool verbosity.
+* _User knows better what to request to install_
++
+Action installs *exact* versions requested.
+* _User knows better what tooling to use and how to use it_
++
+Action assume all required tooling is installed and ready to use.
++
+If a tool requires additional parameters which can be passed via environment, it's user's responsibility to pass these parameters.
++
+The only parameters passed by default is to make installation unattended.
+* _User knows better how to cache installed tools_
++
+No additional caching provided.
+* _Default tool filepath is hardcoded_
++
+Propose new file path to the link:.github/renovate-ci-tools.json[.github/renovate-ci-tools.json] file.
+* _Tools must have exact versions_
++
+There's no software which will never break your workflow on an update, also new version will break your caches.
++
+Setup a bot which will update tools for free or do it yourself if organisation doesn't support it.
+* _Tool lines should be updatable_
++
+To update versions one can use RenovateBot as described in link:.github/renovate-ci-tools.json[.github/renovate-ci-tools.json] file. This configuration snippet is ready to be included in your RenovateBot config.
++
+If custom source is about to be added and it is not supported by https://docs.renovatebot.com/modules/datasource/[RenovateBot], jsonata rule should be modified to support or ignored.
++
+Dependabot https://github.com/dependabot/feedback/issues/154[doesn't seem to support] regex matches.
+* _Tools outside any sections or subsections are not supported_
++
+Yes, and there's no plan to support at the moment.
+Section names are not
+* _Version of a tool is not supporeted by a regex_
++
+Propose an upgrade to regex and the schema. Even better if there will be a test for it.
+* _Tool or version conflicting with the rest of the project_
++
+This tool is not a package manager. _User knows better what to request to install_
+* _Support another existing file format_
++
+This action is designed to install different toolsets for different occasions and initially was only about installing Rust tools, and Python support was added to reduce amount of files to setup.
+* _Rewrite this tool in Rust(or go or another language)_
++
+Binary tools are fine, but action release and usage would be harder.
+_Practicality always beats purity_ (from Zen Of Python).
