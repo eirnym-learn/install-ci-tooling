@@ -1,5 +1,5 @@
 :toc: preamble
-= Simple install for CI tooling
+= Simple install action for CI tooling
 
 CI action to quick install multiple development tools listed in a section of a TOML file.
 
