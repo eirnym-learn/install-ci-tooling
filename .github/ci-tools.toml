@@ -6,6 +6,3 @@ pytest-random-order = { version = "1.2.0", source = "pypi" }
 
 [not-installing]
 typos-cli = { version = "1.42.0", source = "crate" }
-
-[style]
-prek = { version = "0.2.27", source = "crate" }
