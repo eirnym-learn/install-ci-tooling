@@ -48,6 +48,8 @@ jobs:
       uses: ./
       with:
         section: ci
+      env:
+        UV_SYSTEM_PYTHON: 1
     - name: Action test
       run: |
         if ! command -v fd; then
