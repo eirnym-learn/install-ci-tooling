@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
-from typing import Any, Protocol
+from typing import Any
 
 logger = logging.getLogger()
 
@@ -25,6 +25,7 @@ VERSION_PATTERN = re.compile(
         """,
     re.VERBOSE,
 )
+
 TOOL_NAME_PATTERN = re.compile(r"[a-zA-Z0-9](?:[a-zA-Z0-9._-]+[a-zA-Z0-9])?")
 KNOWN_LOG_LEVELS = ("error", "warn", "info", "debug")
 RUST_INSTALL_METHODS = ("prefer-binstall", "binstall", "install")
@@ -81,7 +82,7 @@ def setup_logging(log_level: str | None):
 def validate_version(tool_name: str, version: Any) -> bool:
     """Sanitizes version input.
 
-    Returns `None` if version isn't a string or doesn't match `VERSION_RE`
+    Returns `None` if version isn't a string or doesn't match `VERSION_PATTERN`
     """
     if version is None:
         logger.error(f"{tool_name}: Version is mandatory")
@@ -101,7 +102,7 @@ def validate_version(tool_name: str, version: Any) -> bool:
 def validate_tool_name(tool_name: str) -> bool:
     """Sanitizes tool name input.
 
-    Returns `None` if tool name doesn't match the `TOOL_NAME_RE`.
+    Returns `None` if tool name doesn't match the `TOOL_NAME_PATTERN`.
     """
     tool_name = tool_name.strip()
     if TOOL_NAME_PATTERN.fullmatch(tool_name) is None:
@@ -172,68 +173,36 @@ def check_tool_installed(
     force_install: bool,
     installed_tools: dict[str, str],
 ) -> bool:
+    """Check if tool has been installed.
+
+    Returns `True` if installed and not need to be reinstalled (by `force_install` flag).
+    """
     installed_version = installed_tools.get(tool_name)
 
-    if installed_version:
-        if installed_version == tool_version:
-            logger.info(f"{tool_name} already installed with {tool_version}")
-            return True
-        else:
-            if force_install:
-                logger.warning(
-                    f"{tool_name} version mismatch "
-                    f"(found: {installed_version}, expected: {tool_version}). reinstalling..."
-                )
-            else:
-                logger.warning(
-                    f"{tool_name} version mismatch "
-                    f"(found: {installed_version}, expected: {tool_version})."
-                )
-            return force_install
-    else:
+    if not installed_version:
         logger.info(f"{tool_name} not found, installing...")
-
-    return True
-
-
-class PrepareCommandProtocol(Protocol):
-    def __call__(
-        self,
-        *,
-        tool_name: str,
-        tool_version: str,
-        force_install: bool,
-        install_method: str,
-    ) -> tuple[str, list[str]] | None:
-        """Prepare installation command for a specific source."""
-        return ("tool@version", [])
-
-
-def install_tool(
-    *,
-    tool_name: str,
-    tool_version: str,
-    force_install: bool,
-    dry_run: bool,
-    install_method: str,
-    installed_tools: dict[str, str],
-    prepare_install_command: PrepareCommandProtocol,
-):
-    if not check_tool_installed(
-        tool_name, tool_version, force_install, installed_tools
-    ):
         return False
 
-    prepare_result = prepare_install_command(
-        tool_name=tool_name,
-        tool_version=tool_version,
-        force_install=force_install,
-        install_method=install_method,
+    if installed_version == tool_version:
+        logger.info(f"{tool_name} already installed with {tool_version}")
+        return False
+
+    msg = (
+        "{tool_name} version mismatch "
+        f"(found: {installed_version}, expected: {tool_version})."
     )
-    if not prepare_result:
-        return False
+    if force_install:
+        msg += " Reinstalling..."
 
-    versioned_tool, command = prepare_result
+    logger.warning(msg)
+    return force_install
+
+
+def run_install_tool(
+    *, versioned_tool: str, dry_run: bool, prepared_command: tuple[str]
+):
+    command = list(prepared_command)
+    command.append(versioned_tool)
 
     logger.info(f"Installing {versioned_tool}")
 
@@ -248,17 +217,15 @@ def install_tool(
     if not dry_run:
         subprocess.run(command, check=True, text=True)
 
-    logger.info(f"Successfully installed {tool_name} version {tool_version}")
+    logger.info(f"Successfully installed {versioned_tool}")
     return True
 
 
 def prepare_rust_install_command(
     *,
-    tool_name: str,
-    tool_version: str,
     force_install: bool,
     install_method: str,
-) -> tuple[str, list[str]] | None:
+) -> tuple[str, ...] | None:
     use_cargo_binstall: bool
     match install_method:
         case "prefer-binstall":
@@ -282,19 +249,14 @@ def prepare_rust_install_command(
     if force_install:
         command.append("--force")
 
-    versioned_tool = f"{tool_name}@{tool_version}"
-    command.append(versioned_tool)
-
-    return (versioned_tool, command)
+    return tuple(command)
 
 
 def prepare_python_install_command(
     *,
-    tool_name: str,
-    tool_version: str,
     force_install: bool,
     install_method: str,
-) -> tuple[str, list[str]] | None:
+) -> tuple[str, ...] | None:
     """Install Python package.
 
     TODO: Forced installation is not yet supported, but checked.
@@ -324,10 +286,7 @@ def prepare_python_install_command(
         logger.warning("Force install flag is not yet supported for Python packages")
         warning_python_force_install_met = True
 
-    versioned_tool = f"{tool_name}=={tool_version}"
-    command.append(versioned_tool)
-
-    return (versioned_tool, command)
+    return tuple(command)
 
 
 def list_installed_rust_tools() -> Iterable[tuple[str, str]]:
@@ -418,7 +377,7 @@ def main() -> bool:
     args = parse_args()
 
     setup_logging(args.log_level)
-    # logger.error(args)
+
     logger.info(f"Installing cargo tools from {args.toml_file}/{args.section}")
     installed_rust_tools = dict(list_installed_rust_tools())
     installed_python_packages = dict(
@@ -427,42 +386,50 @@ def main() -> bool:
 
     if logger.isEnabledFor(logging.DEBUG):
         for crate, version in installed_rust_tools.items():
-            logger.info(f"Installed rust crate {crate} {version}")
+            logger.debug(f"Installed rust crate {crate} {version}")
 
         for package, version in installed_python_packages.items():
-            logger.info(f"Installed python package {package} {version}")
+            logger.debug(f"Installed python package {package} {version}")
 
     tools = read_tools(args.toml_file, args.section)
     if tools is None:
         return False
 
+    prepared_command_rust = prepare_rust_install_command(
+        force_install=args.force_install,
+        install_method=args.rust_install_method,
+    )
+    prepared_command_python = prepare_python_install_command(
+        force_install=args.force_install,
+        install_method=args.python_install_method,
+    )
+
     for tool_name, tool_version, source in tools:
         installed_tools: dict[str, str]
-        prepare_install_command: PrepareCommandProtocol
-        install_method: str
 
         match source:
             case "crate":
+                versioned_tool = f"{tool_name}@{tool_version}"
                 installed_tools = installed_rust_tools
-                prepare_install_command = prepare_rust_install_command
-                install_method = args.rust_install_method
+                prepared_command = prepared_command_rust
             case "pypi":
+                versioned_tool = f"{tool_name}=={tool_version}"
                 installed_tools = installed_rust_tools
-                prepare_install_command = prepare_python_install_command
-                install_method = args.python_install_method
+                prepared_command = prepared_command_python
             case _:
                 logger.warning(f"{tool_name}: Datasource is not supported")
                 continue
 
+        if not check_tool_installed(
+            tool_name, tool_version, args.force_install, installed_tools
+        ):
+            return False
+
         try:
-            install_tool(
-                tool_name=tool_name,
-                tool_version=tool_version,
-                force_install=args.force_install,
+            run_install_tool(
+                versioned_tool=versioned_tool,
                 dry_run=args.dry_run,
-                install_method=install_method,
-                installed_tools=installed_tools,
-                prepare_install_command=prepare_install_command,
+                prepared_command=prepared_command,
             )
         except subprocess.CalledProcessError:
             return False
