@@ -7,8 +7,8 @@
   "enabled": true,
   "extends": [
     "config:recommended",
-    "github>eirnym-learn/act-tooling//.github/renovate-ci-tools.json",
-    "github>eirnym-learn/act-tooling//.github/renovate-prek.json",
-    "github>eirnym-learn/act-tooling//.github/renovate-common.json"
+    "github>eirnym-learn/install-tooling-action//.github/renovate-ci-tools.json",
+    "github>eirnym-learn/install-tooling-action//.github/renovate-prek.json",
+    "github>eirnym-learn/install-tooling-action//.github/renovate-common.json"
   ]
 }
