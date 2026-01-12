@@ -5,7 +5,7 @@ CI action to quick install multiple development tools listed in a section of a T
 
 == Simple example
 
-.Simple example of `ci-tools.toml`
+.Example of `.github/ci-tools.toml`
 [source, toml]
 -----
 [to-be-installed]
@@ -14,6 +14,15 @@ pytest = { version = "9.0.2", source = "pypi"}
 
 [other-section]
 typos-cli = { version = "1.42.0", source = "crate" }
+-----
+
+.Example of usage in CI workflow
+[source, yaml]
+-----
+- uses: cargo-bins/cargo-binstall@v1.16.6
+- uses: eirnym-learn/install-ci-tooling@v1.0.2
+    with:
+    section: ci
 -----
 
 If one will request to install tools from `to-be-installed` section, only https://lib.rs/crates/fd-find[fd-find] and https://pypi.org/project/pytest[pytest] will be installed. https://lib.rs/crates/typos-cli[typos-cli] will not be installed as not requested.
