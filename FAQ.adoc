@@ -28,10 +28,16 @@ To update versions one can use RenovateBot as described in link:.github/renovate
 If custom source is about to be added and it is not supported by https://docs.renovatebot.com/modules/datasource/[RenovateBot], jsonata rule should be modified to support or ignored.
 +
 Dependabot https://github.com/dependabot/feedback/issues/154[doesn't seem to support] regex matches.
+* _Custom package repository support_
++
+Please refer how to configure `cargo (b)install`, `pip` and `uv`. All of them support custom registries.
+* _Git with tag/branch_
++
+Prepare yours custom registry and set up tooling.
 * _Tools outside any sections or subsections are not supported_
 +
 Yes, and there's no plan to support at the moment.
-Section names are not
+Section names are not restricted in any way.
 * _Version of a tool is not supporeted by a regex_
 +
 Propose an upgrade to regex and the schema. Even better if there will be a test for it.
@@ -45,6 +51,6 @@ This action is designed to install different toolsets for different occasions an
 +
 Binary tools are fine, but action release and usage would be harder.
 _Practicality always beats purity_ (from Zen Of Python).
-* _Why not to use xxx action to install_
+* _Why not to use another GitHub CI action to install tooling_
 +
-Mostly because of lack of easy setup for RenovateBot and different sources.
+Fragmentation is not always a good thing and in most cases because of lack of easy setup for RenovateBot and different sources.
