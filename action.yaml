@@ -74,8 +74,8 @@ runs:
       python "${{ github.action_path }}/entrypoint.py" \
         ${force_install:+--force-install} \
         ${dry_run:+--dry-run} \
-        --rust-install-method ${{ inputs.rust-install-method }}
-        --python-install-method ${{ inputs.python-install-method }}
+        --rust-install-method ${{ inputs.rust-install-method }} \
+        --python-install-method ${{ inputs.python-install-method }} \
         --log-level $log_level \
         "${{ inputs.tools-file }}" \
         "${{ inputs.section }}"
