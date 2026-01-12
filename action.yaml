@@ -23,7 +23,7 @@ inputs:
     type: choice
     description: Method to install Python packages
     required: false
-    default: prefer-uv
+    default: pip
     options:
     - prefer-uv
     - uv
