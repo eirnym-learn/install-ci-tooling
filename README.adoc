@@ -91,6 +91,7 @@ If one will request to install tools from `to-be-installed` section, only https:
 // -------------------
 | preferred-binstall
 | Use `cargo binstall` if `cargo-binstall` is installed and in PATH. Use `cargo install` otherwise.
+|
 // -------------------
 |======
 
@@ -112,6 +113,7 @@ Cargo home and other install parameters can be passed using environment variable
 // -------------------
 | preferred-uv
 | Use `uv` if `uv` is installed and in `PATH`. Use `pip` otherwise.
+|
 // -------------------
 |======
 
