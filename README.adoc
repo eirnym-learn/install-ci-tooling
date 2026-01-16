@@ -2,6 +2,9 @@
 = Simple install action for CI tooling
 
 CI action to quick install multiple development tools listed in a section of a TOML file.
+Different sections might be useful for different jobs and/or workflows.
+
+It's designed to minimize loose files and multiple methods install CI tools, while keeping configuration simple and installed packages cacheable and updatable via RenovateBot.
 
 == Simple example
 

@@ -1,56 +1,43 @@
-== Selected FAQ
+= Selected FAQ
 
-* _User knows better what to request to install_
+NOTE: While tools file is a configurable parameter, `ci-tools.toml` will be used to keep text below shorter.
+
+* This tool installs exact version provided in `ci-tools.toml` file.
+* Additional tool configuration like additional repositories could be configured outside this action, so user is responsible for that.
+* SCM links are not supported at the momend due to installation may not be cacheable. PR is welcome if one would like to support this. Please note, that JSONata expression in link:.github/renovate-ci-tools.json[.github/renovate-ci-tools.json] should be upgraded too to support such installation method.
+
+* _Why RenovateBot?_
 +
-Action installs *exact* versions requested.
-* _User knows better what tooling to use and how to use it_
+I use it and it supports custom JSONata expressions.
+If you know that other bot you use can update internals of this file, PRs with config sippets and documentation are welcome.
+* _Why exact version?_
 +
-Action assume all required tooling is installed and ready to use.
+A new tool version may break build and it worth a while to catch this as soon as possible rather than be surprised on next build.
+* _My installation method or language is not supported_
 +
-If a tool requires additional parameters which can be passed via environment, it's user's responsibility to pass these parameters.
-+
-The only parameters passed by default is to make installation unattended.
-* _User knows better how to cache installed tools_
-+
-No additional caching provided.
-* _Default tool filepath is hardcoded_
-+
-Propose new file path to the link:.github/renovate-ci-tools.json[.github/renovate-ci-tools.json] file.
-* _Tools must have exact versions_
-+
-There's no software which will never break your workflow on an update, also new version will break your caches.
-+
-Setup a bot which will update tools for free or do it yourself if organisation doesn't support it.
-* _Tool lines should be updatable_
-+
-To update versions one can use RenovateBot as described in link:.github/renovate-ci-tools.json[.github/renovate-ci-tools.json] file. This configuration snippet is ready to be included in your RenovateBot config.
-+
-If custom source is about to be added and it is not supported by https://docs.renovatebot.com/modules/datasource/[RenovateBot], jsonata rule should be modified to support or ignored.
-+
-Dependabot https://github.com/dependabot/feedback/issues/154[doesn't seem to support] regex matches.
+Issues and/or PRs are welcome.
 * _Custom package repository support_
 +
-Please refer how to configure `cargo (b)install`, `pip` and `uv`. All of them support custom registries.
-* _Git with tag/branch_
+Please refer how to configure `cargo (b)install`, `pip` and `uv` and `RenovateBot`.
+All of them support custom registries via configuration and/or environment.
+* _Custom parameters support for package installers_
 +
-Prepare yours custom registry and set up tooling.
+Please refer how to configure `cargo (b)install`, `pip` and `uv` and `RenovateBot`.
+All of them support custom paramets via configuration and/or environment.
 * _Tools outside any sections or subsections are not supported_
 +
-Yes, and there's no plan to support at the moment.
+Yes, and there's no plan to support them at the moment.
 Section names are not restricted in any way.
-* _Version of a tool is not supporeted by a regex_
+* _Version of a tool to install is not supporeted by the regex_
 +
-Propose an upgrade to regex and the schema. Even better if there will be a test for it.
-* _Tool or version conflicting with the rest of the project_
-+
-This tool is not a package manager. _User knows better what to request to install_
+Propose an upgrade to regex and the schema to include it. Even better if there will be a test for it.
 * _Support another existing file format_
 +
-This action is designed to install different toolsets for different occasions and initially was only about installing Rust tools, and Python support was added to reduce amount of files to setup.
-* _Rewrite this tool in Rust(or go or another language)_
-+
-Binary tools are fine, but action release and usage would be harder.
-_Practicality always beats purity_ (from Zen Of Python).
+This action is not a package manager and it was designed to be cross-language.
+Additionally, most of the tools to be installed are outside of primary project's configuration (e.g. `Cargo.toml``, `pyproject.toml` or `requirements.txt`)
 * _Why not to use another GitHub CI action to install tooling_
 +
-Fragmentation is not always a good thing and in most cases because of lack of easy setup for RenovateBot and different sources.
+Fragmentation of places and install methods is hard to cover with RenovateBot and to keep them up-to-date.
+* _Installation from system package manager_
++
+Some installation sources are not supported by RenovateBot, like `apt` or `winget` where one can install only exact version. PRs are welcome, the main obstacle is to exclude from JSONata.
