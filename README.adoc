@@ -25,7 +25,7 @@ typos-cli = { version = "1.42.0", source = "crate" }
 - uses: cargo-bins/cargo-binstall@v1.16.6
 - uses: eirnym-learn/install-ci-tooling@v1.0.2
     with:
-    section: ci
+    section: to-be-installed
 -----
 
 If one will request to install tools from `to-be-installed` section, only https://lib.rs/crates/fd-find[fd-find] and https://pypi.org/project/pytest[pytest] will be installed. https://lib.rs/crates/typos-cli[typos-cli] will not be installed as not requested.
@@ -74,6 +74,48 @@ If one will request to install tools from `to-be-installed` section, only https:
 |
 // -------------------
 |======
+
+=== Rust install methods
+
+[options=header]
+|======
+| Method | Meaning | Notes
+// -------------------
+| install
+| use `cargo install tool@version`
+| Rust toolchain must be installed. `cargo` tool must be in `PATH`
+// -------------------
+| binstall
+| use `cargo binstall --no-confirm tool@version`
+| Rust toolchain and `cargo-binstall` must be installed. `cargo` and `cargo-binstall` tools must be in `PATH`.
+// -------------------
+| preferred-binstall
+| Use `cargo binstall` if `cargo-binstall` is installed and in PATH. Use `cargo install` otherwise.
+// -------------------
+|======
+
+Cargo home and other install parameters can be passed using environment variables.
+
+=== Python install methods
+
+[options=header]
+|======
+| Method | Meaning | Notes
+// -------------------
+| pip
+| Run `pip install tool==version`
+| `pip` must be installed and in `PATH`.
+// -------------------
+| uv
+| Run `uv pip install tool==version`
+| `uv` must be installed and in `PATH`.
+// -------------------
+| preferred-uv
+| Use `uv` if `uv` is installed and in `PATH`. Use `pip` otherwise.
+// -------------------
+|======
+
+Virtual env selection and other parameters might be passed using environment variables.
 
 == IDE Integrations
 

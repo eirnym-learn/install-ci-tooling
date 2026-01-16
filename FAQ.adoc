@@ -6,38 +6,39 @@ NOTE: While tools file is a configurable parameter, `ci-tools.toml` will be used
 * Additional tool configuration like additional repositories could be configured outside this action, so user is responsible for that.
 * SCM links are not supported at the momend due to installation may not be cacheable. PR is welcome if one would like to support this. Please note, that JSONata expression in link:.github/renovate-ci-tools.json[.github/renovate-ci-tools.json] should be upgraded too to support such installation method.
 
-* _Why RenovateBot?_
+.Frequently asked questions
+* **_Why RenovateBot?_**
 +
 I use it and it supports custom JSONata expressions.
 If you know that other bot you use can update internals of this file, PRs with config sippets and documentation are welcome.
-* _Why exact version?_
+* **_Why exact version?_**
 +
 A new tool version may break build and it worth a while to catch this as soon as possible rather than be surprised on next build.
-* _My installation method or language is not supported_
+* **_My installation method or language is not supported_**
 +
 Issues and/or PRs are welcome.
-* _Custom package repository support_
+* **_Custom package repository support_**
 +
 Please refer how to configure `cargo (b)install`, `pip` and `uv` and `RenovateBot`.
 All of them support custom registries via configuration and/or environment.
-* _Custom parameters support for package installers_
+* **_Custom parameters support for package installers_**
 +
 Please refer how to configure `cargo (b)install`, `pip` and `uv` and `RenovateBot`.
 All of them support custom paramets via configuration and/or environment.
-* _Tools outside any sections or subsections are not supported_
+* **_Tools outside any sections or subsections are not supported_**
 +
 Yes, and there's no plan to support them at the moment.
 Section names are not restricted in any way.
-* _Version of a tool to install is not supporeted by the regex_
+* **_Version of a tool to install is not supporeted by the regex_**
 +
 Propose an upgrade to regex and the schema to include it. Even better if there will be a test for it.
-* _Support another existing file format_
+* **_Support another existing file format_**
 +
 This action is not a package manager and it was designed to be cross-language.
 Additionally, most of the tools to be installed are outside of primary project's configuration (e.g. `Cargo.toml``, `pyproject.toml` or `requirements.txt`)
-* _Why not to use another GitHub CI action to install tooling_
+* **_Why not to use another GitHub CI action to install tooling_**
 +
 Fragmentation of places and install methods is hard to cover with RenovateBot and to keep them up-to-date.
-* _Installation from system package manager_
+* **_Installation from system package manager_**
 +
 Some installation sources are not supported by RenovateBot, like `apt` or `winget` where one can install only exact version. PRs are welcome, the main obstacle is to exclude from JSONata.
