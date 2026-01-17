@@ -17,6 +17,11 @@ unknown_tool = 'unknown_tool = {version = "1.12.3", source = "unknown"}'
 unknown_tool_ver = "unknown_tool"
 install_tool_rs = 'install_tool_rs = {version = "1.1.4", source = "crate"}'
 install_tool_rs_ver = "install_tool_rs@1.1.4"
+locked_tool_rs = 'locked_tool_rs = {version = "5.6.4", source = "crate", locked = true}'
+locked_tool_rs_ver = "locked_tool_rs@5.6.4"
+locked_tool_py = 'locked_tool_py = {version = "0.9.1", source = "pypi", locked = true}'
+locked_tool_py_ver = "locked_tool_py==0.9.1"
+install_tool_rs_ver = "install_tool_rs@1.1.4"
 install_tool_py = 'install_tool_py = {version = "2.8.9", source = "pypi"}'
 install_tool_py_ver = "install_tool_py==2.8.9"
 dev_tool_py = 'dev_tool_py = {"version" = "1.2.3.dev", source = "pypi"}'
@@ -27,6 +32,8 @@ all_install_tools = "\n".join(
     (
         install_tool_rs,
         install_tool_py,
+        locked_tool_rs,
+        locked_tool_py,
         dev_tool_py,
         epoch_tool_py,
     )
@@ -34,10 +41,12 @@ all_install_tools = "\n".join(
 all_install_tools_ver = (
     install_tool_rs_ver,
     install_tool_py_ver,
+    locked_tool_rs_ver,
+    locked_tool_py_ver,
     dev_tool_py_ver,
     epoch_tool_py_ver,
 )
-
+expected_locked = [locked_tool_rs_ver]
 all_install_tools_unknown = "\n".join((all_install_tools, unknown_tool))
 
 
@@ -70,6 +79,7 @@ def setup_tools_toml(
             f.write(f"[{SECTION}]\n{section_data}")
             if unknown_section:
                 f.write(SECTION_NEVER_INSTALLED)
+        f.write("\n")
 
 
 def setup_bin_folder(
@@ -126,6 +136,7 @@ def execute_command(
 
     env = os.environ.copy()
     env["CARGO_HOME"] = str(cargo_home)
+    print(f" cat {tool_file}; echo;")
     print(f" CARGO_HOME={env['CARGO_HOME']}", end=" ")
     if limit_bin_to is not None:
         env["PATH"] = (
@@ -149,30 +160,43 @@ def execute_command(
     )
 
 
-@pytest.mark.parametrize("has_crates_toml", (True, False))
-@pytest.mark.parametrize("unknown_section", (True, False))
+bool_values = (True, False)
+# bool_values = (True,)
+
+rust_install_opts = ("prefer-binstall", "binstall", "install")
+python_install_opts = ("prefer-uv", "uv", "pip")
+
+
+@pytest.mark.parametrize("rust_install_method", rust_install_opts)
+@pytest.mark.parametrize("python_install_method", python_install_opts)
+@pytest.mark.parametrize("has_crates_toml", bool_values)
+@pytest.mark.parametrize("unknown_section", bool_values)
+@pytest.mark.parametrize("has_cargo_binstall", bool_values)
+@pytest.mark.parametrize("has_python_uv", bool_values)
+@pytest.mark.parametrize("force_install", bool_values)
 @pytest.mark.parametrize(
-    "rust_install_method", ("prefer-binstall", "binstall", "install")
-)
-@pytest.mark.parametrize("python_install_method", ("prefer-uv", "uv", "pip"))
-@pytest.mark.parametrize("has_cargo_binstall", (True, False))
-@pytest.mark.parametrize("has_python_uv", (True, False))
-@pytest.mark.parametrize("force_install", (True, False))
-@pytest.mark.parametrize(
-    "section_data,expected_tools,unsupported_tools",
+    "section_data,expected_tools,locked_tools,unsupported_tools",
     (
-        (install_tool_rs, [install_tool_rs_ver], []),
-        (install_tool_py, [install_tool_py_ver], []),
-        (dev_tool_py, [dev_tool_py_ver], []),
-        (epoch_tool_py, [epoch_tool_py_ver], ()),
-        (all_install_tools, all_install_tools_ver, []),
-        (unknown_tool, [], [unknown_tool_ver]),
-        (all_install_tools_unknown, all_install_tools_ver, [unknown_tool_ver]),
+        (install_tool_rs, [install_tool_rs_ver], [], []),
+        (install_tool_py, [install_tool_py_ver], [], []),
+        (locked_tool_rs, [locked_tool_rs_ver], [locked_tool_rs_ver], []),
+        (locked_tool_py, [locked_tool_py_ver], [], []),
+        (dev_tool_py, [dev_tool_py_ver], [], []),
+        (epoch_tool_py, [epoch_tool_py_ver], [], ()),
+        (all_install_tools, all_install_tools_ver, [locked_tool_rs_ver], []),
+        (unknown_tool, [], [], [unknown_tool_ver]),
+        (
+            all_install_tools_unknown,
+            all_install_tools_ver,
+            [locked_tool_rs_ver],
+            [unknown_tool_ver],
+        ),
     ),
 )
 def test_positive(
     section_data: str,
     expected_tools: list[str],
+    locked_tools: list[str],
     unsupported_tools: list[str],
     has_crates_toml: bool,
     unknown_section: bool,
@@ -216,39 +240,51 @@ def test_positive(
 
     warning_python_force_flag_met = False
     python_list_cmd_met = False
+
     for line in stderr.splitlines():
         assert "[ERROR]" not in line
         if "[DEBUG]" in line or "[INFO]" in line:
             continue
 
-        warning_python_force_flag = line.endswith(
-            "[WARNING] Force install flag is not yet supported for Python packages"
-        )
+        warning_python_force_flag = False
 
-        if warning_python_force_flag:
-            assert not warning_python_force_flag_met
-            warning_python_force_flag_met = True
+        if " [WARNING] " in line:
+            warning_python_force_flag = line.endswith(
+                "[WARNING] Force install flag is not yet supported for Python packages"
+            )
 
-        if warning_python_force_flag_met:
-            continue
+            if warning_python_force_flag:
+                assert not warning_python_force_flag_met
+                warning_python_force_flag_met = True
 
-        pip_list = re.sub(
-            "^.* \\[WARNING] List python packages using command: '(.*)'$", "\\1", line
-        )
-        install_tool = re.sub(
-            "^.* \\[WARNING] Running install command: '(.*)'$", "\\1", line
-        )
-        unsupported = re.sub(
-            "^.* \\[WARNING] ([^:]+): Datasource is not supported$", "\\1", line
-        )
+            if warning_python_force_flag:
+                continue
 
-        if pip_list == line:
+            pip_list = re.sub(
+                "^.* \\[WARNING] List python packages using command: '(.*)'$",
+                "\\1",
+                line,
+            )
+            install_tool = re.sub(
+                "^.* \\[WARNING] Running install command: '(.*)'$", "\\1", line
+            )
+            unsupported = re.sub(
+                "^.* \\[WARNING] ([^:]+): Source is not supported$", "\\1", line
+            )
+
+            if pip_list == line:
+                pip_list = None
+
+            if install_tool == line:
+                install_tool = None
+
+            if unsupported == line:
+                unsupported = None
+
+            assert pip_list or install_tool or unsupported, line
+        else:
             pip_list = None
-
-        if install_tool == line:
             install_tool = None
-
-        if unsupported == line:
             unsupported = None
 
         if install_tool:
@@ -260,8 +296,9 @@ def test_positive(
 
             match cmd[0]:
                 case "cargo":
+                    locked = expected_tool in locked_tools
                     check_cargo_install(
-                        cmd, expected_tool, use_cargo_binstall, force_install
+                        cmd, expected_tool, use_cargo_binstall, force_install, locked
                     )
                 case "uv" | "pip":
                     check_python_install(
@@ -269,10 +306,11 @@ def test_positive(
                         expected_tool,
                         use_python_uv,
                         force_install,
-                        warning_python_force_flag,
+                        warning_python_force_flag_met,
                     )
                 case _:
                     assert False, f"{cmd[0]} is unsupported: {install_tool!r}"
+
         if pip_list:
             assert not python_list_cmd_met
             python_list_cmd_met = True
@@ -287,7 +325,11 @@ def test_positive(
 
 
 def check_cargo_install(
-    cmd: list[str], expected_tool: str, use_cargo_binstall: bool, force_install: bool
+    cmd: list[str],
+    expected_tool: str,
+    use_cargo_binstall: bool,
+    force_install: bool,
+    locked: bool,
 ):
     """Checks tool installation using cargo"""
     assert cmd[0] == "cargo"
@@ -305,6 +347,10 @@ def check_cargo_install(
         assert cmd[idx] == "--force"
         idx += 1
 
+    if locked:
+        assert cmd[idx] == "--locked"
+        idx += 1
+
     assert cmd[idx] == expected_tool
 
     assert len(cmd) == idx + 1
@@ -315,7 +361,7 @@ def check_python_install(
     expected_tool: str,
     use_python_uv: bool,
     force_install: bool,
-    warning_python_force_flag: bool,
+    warning_python_force_flag_met: bool,
 ):
     idx = 0
     if use_python_uv:
@@ -327,7 +373,7 @@ def check_python_install(
     assert cmd[idx + 2] == expected_tool
 
     if force_install:
-        assert warning_python_force_flag, "Warning hasn't been met"
+        assert warning_python_force_flag_met, "Warning hasn't been met"
 
 
 def check_python_list(cmd: list[str], use_python_uv: bool):
@@ -341,30 +387,86 @@ def check_python_list(cmd: list[str], use_python_uv: bool):
     "section_data,expected_error",
     (
         # tool name is invalid
-        ('-invalid_tool = "1.2.3"', "Tool name is unexpected: '-invalid_tool'"),
-        ('_invalid_tool = "1.2.3"', "Tool name is unexpected: '_invalid_tool'"),
-        ('"invalid_tool*" = "1.2.3"', "Tool name is unexpected: 'invalid_tool*'"),
+        (
+            '-invalid_tool = "1.2.3"',
+            "Tool name doesn't match crates.io or Pypi tool name: '-invalid_tool'",
+        ),
+        (
+            '_invalid_tool = "1.2.3"',
+            "Tool name doesn't match crates.io or Pypi tool name: '_invalid_tool'",
+        ),
+        (
+            '"invalid_tool*" = "1.2.3"',
+            "Tool name doesn't match crates.io or Pypi tool name: 'invalid_tool*'",
+        ),
         # version name is unexpected or unexpected type
-        ("invalid_tool = true", "invalid_tool: Value must be a dict"),
-        ("invalid_tool = false", "invalid_tool: Value must be a dict"),
-        ("invalid_tool = 123", "invalid_tool: Value must be a dict"),
-        ('invalid_tool = "Wow"', "invalid_tool: Value must be a dict"),
-        ('invalid_tool = "1.2.3"', "invalid_tool: Value must be a dict"),
-        ('invalid_tool = "1.2.3.dev"', "invalid_tool: Value must be a dict"),
-        ('invalid_tool = "20!1.2.3"', "invalid_tool: Value must be a dict"),
+        ("invalid_tool = []", "invalid_tool: Tool details must be dict"),
+        ("invalid_tool = true", "invalid_tool: Tool details must be dict"),
+        ("invalid_tool = false", "invalid_tool: Tool details must be dict"),
+        ("invalid_tool = 123", "invalid_tool: Tool details must be dict"),
+        ('invalid_tool = "Wow"', "invalid_tool: Tool details must be dict"),
+        ('invalid_tool = "1.2.3"', "invalid_tool: Tool details must be dict"),
+        ('invalid_tool = "1.2.3.dev"', "invalid_tool: Tool details must be dict"),
+        ('invalid_tool = "20!1.2.3"', "invalid_tool: Tool details must be dict"),
         # dversion is mandatory
         ("invalid_tool = {}", "invalid_tool: Version is mandatory"),
         ('invalid_tool = {"key" = "value"}', "invalid_tool: Version is mandatory"),
-        ('invalid_tool = {"version" = {}}', "invalid_tool: Version must be a string"),
-        ('invalid_tool = {"version" = true}', "invalid_tool: Version must be a string"),
+        ('invalid_tool = {"version" = {}}', "invalid_tool: Version must be string"),
+        ('invalid_tool = {"version" = []}', "invalid_tool: Version must be string"),
+        ('invalid_tool = {"version" = true}', "invalid_tool: Version must be string"),
         (
             'invalid_tool = {"version" = false}',
-            "invalid_tool: Version must be a string",
+            "invalid_tool: Version must be string",
         ),
-        ('invalid_tool = {"version" = 123}', "invalid_tool: Version must be a string"),
+        ('invalid_tool = {"version" = 123}', "invalid_tool: Version must be string"),
         (
             'invalid_tool = {"version" = "Wow"}',
-            "invalid_tool: Version doesn't match semver scheme: 'Wow'",
+            "invalid_tool: Version doesn't match semver or PEP440 scheme: 'Wow'",
+        ),
+        ('invalid_tool = {"version" = "1.2.3"}', "invalid_tool: Source is mandatory"),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = true}',
+            "invalid_tool: Source must be string",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = false}',
+            "invalid_tool: Source must be string",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = 123}',
+            "invalid_tool: Source must be string",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = []}',
+            "invalid_tool: Source must be string",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = {}}',
+            "invalid_tool: Source must be string",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = "Wow"}',
+            "invalid_tool: Source doesn't match source name pattern: 'Wow'",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = "1.2.3"}',
+            "invalid_tool: Source doesn't match source name pattern: '1.2.3'",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = "true", locked = {}}',
+            "invalid_tool: Locked must be boolean",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = "true", locked = []}',
+            "invalid_tool: Locked must be boolean",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = "true", locked = 123}',
+            "invalid_tool: Locked must be boolean",
+        ),
+        (
+            'invalid_tool = {"version" = "1.2.3", source = "true", locked = "123"}',
+            "invalid_tool: Locked must be boolean",
         ),
     ),
 )

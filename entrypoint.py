@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from collections.abc import Iterable
 import argparse
+import dataclasses
+import functools
 import logging
 import os
 import re
@@ -12,6 +14,7 @@ from typing import Any
 
 logger = logging.getLogger()
 
+TOOL_NAME_PATTERN = re.compile(r"[a-zA-Z0-9](?:[a-zA-Z0-9._-]+[a-zA-Z0-9])?")
 # normal for Rust crates, quite restrictive for others
 VERSION_PATTERN = re.compile(
     r"""
@@ -22,11 +25,10 @@ VERSION_PATTERN = re.compile(
         ([-.][a-zA-Z]+(?:\.?\d+)?)? # loosen pre-release segments. E.g. -alpha.1, .post1, etc.
         (?:\+[a-zA-Z]+(?:\.\d+)?)?  # build/local info. E.g. +build.1
         $
-        """,
+    """,
     re.VERBOSE,
 )
-
-TOOL_NAME_PATTERN = re.compile(r"[a-zA-Z0-9](?:[a-zA-Z0-9._-]+[a-zA-Z0-9])?")
+SOURCE_PATTERN = re.compile(r"[a-z]+")
 KNOWN_LOG_LEVELS = ("error", "warn", "info", "debug")
 RUST_INSTALL_METHODS = ("prefer-binstall", "binstall", "install")
 PYTHON_INSTALL_METHODS = ("prefer-uv", "uv", "pip")
@@ -79,52 +81,105 @@ def setup_logging(log_level: str | None):
     logging.basicConfig(level=logging_level, format=format)
 
 
-def validate_version(tool_name: str, version: Any) -> bool:
-    """Sanitizes version input.
+@dataclasses.dataclass(kw_only=True, slots=True, frozen=True)
+class ToolInfo:
+    name: str
+    version: str
+    source: str
+    locked: bool = False
 
-    Returns `None` if version isn't a string or doesn't match `VERSION_PATTERN`
-    """
-    if version is None:
-        logger.error(f"{tool_name}: Version is mandatory")
+
+def validate_item(
+    *,
+    value: Any,
+    field: str,
+    tool_name: str | None,
+    ty: type | Iterable[type],
+    ty_str: str,
+    mandatory: bool,
+    regex: re.Pattern[str] | None,
+    regex_str: str | None,
+):
+    def error_msg(msg: str):
+        if tool_name:
+            logger.error(f"{tool_name}: {msg}")
+        else:
+            logger.error(msg)
+
+    field = field.capitalize()
+
+    if value is None:
+        if mandatory:
+            error_msg(f"{field} is mandatory")
+            return False
+        return True
+
+    if not isinstance(value, ty):
+        error_msg(f"{field} must be {ty_str}")
         return False
 
-    if not isinstance(version, str):
-        logger.error(f"{tool_name}: Version must be a string")
-        return False
-
-    if VERSION_PATTERN.fullmatch(version) is None:
-        logger.error(f"{tool_name}: Version doesn't match semver scheme: {version!r}")
-        return False
+    if regex is not None:
+        if regex.fullmatch(value) is None:
+            error_msg(f"{field} doesn't match {regex_str}: {value!r}")
+            return False
 
     return True
 
 
-def validate_tool_name(tool_name: str) -> bool:
-    """Sanitizes tool name input.
-
-    Returns `None` if tool name doesn't match the `TOOL_NAME_PATTERN`.
-    """
-    tool_name = tool_name.strip()
-    if TOOL_NAME_PATTERN.fullmatch(tool_name) is None:
-        logger.error(f"Tool name is unexpected: {tool_name!r}")
-        return False
-
-    return True
+validate_details = functools.partial(
+    validate_item,
+    field="tool details",
+    ty=dict,
+    ty_str="dict",
+    mandatory=True,
+    regex=None,
+    regex_str=None,
+)
 
 
-def validate_datasource(tool_name: str, datasource: Any) -> bool:
-    """Sanitizes datasource input.
+validate_tool_name = functools.partial(
+    validate_item,
+    field="tool name",
+    tool_name=None,
+    ty=str,
+    ty_str="string",
+    mandatory=True,
+    regex=TOOL_NAME_PATTERN,
+    regex_str="crates.io or Pypi tool name",
+)
 
-    Returns `None` if datasource is not a string.
-    """
-    if not isinstance(datasource, str):
-        logger.error(f"{tool_name}: Datasource is not a string")
-        return False
+validate_version = functools.partial(
+    validate_item,
+    field="version",
+    ty=str,
+    ty_str="string",
+    mandatory=True,
+    regex=VERSION_PATTERN,
+    regex_str="semver or PEP440 scheme",
+)
 
-    return True
+validate_source = functools.partial(
+    validate_item,
+    field="source",
+    ty=str,
+    ty_str="string",
+    mandatory=True,
+    regex=SOURCE_PATTERN,
+    regex_str="source name pattern",
+)
+
+validate_locked = functools.partial(
+    validate_item,
+    field="locked",
+    ty=bool,
+    ty_str="boolean",
+    mandatory=False,
+    regex=None,
+    regex_str=None,
+)
 
 
-def read_tools(toml_file: str, section: str) -> list[tuple[str, Any, Any]] | None:
+def read_tools(toml_file: str, section: str) -> Iterable[ToolInfo] | None:
     """Reads given section from given tools file.
 
     Returns tuple of (tool name, version, datasource).
@@ -143,33 +198,36 @@ def read_tools(toml_file: str, section: str) -> list[tuple[str, Any, Any]] | Non
         logger.error(f"Tools file doesn't contain section requested: {section}")
         return None
 
-    result: list[tuple[str, str, str]] = []
+    result: list[ToolInfo] = []
 
     for tool_name, value in tools.items():
-        if not validate_tool_name(tool_name):
+        if not validate_tool_name(value=tool_name):
             return None
 
-        if isinstance(value, dict):
-            version = value.get("version")
-            datasource = value.get("source")
+        if not validate_details(tool_name=tool_name, value=value):
+            return None
+
+        version = value.get("version")
+        source = value.get("source")
+        locked = value.get("locked")
+
+        if (
+            validate_version(tool_name=tool_name, value=version)
+            and validate_source(tool_name=tool_name, value=source)
+            and validate_locked(tool_name=tool_name, value=locked)
+        ):
+            result.append(
+                ToolInfo(name=tool_name, version=version, source=source, locked=locked)
+            )
         else:
-            logger.error(f"{tool_name}: Value must be a dict")
             return None
-
-        if not validate_version(tool_name, version):
-            return None
-
-        if not validate_datasource(tool_name, datasource):
-            return None
-
-        result.append((tool_name, version, datasource))
 
     return result
 
 
 def check_tool_installed(
-    tool_name: str,
-    tool_version: str,
+    name: str,
+    version: str,
     force_install: bool,
     installed_tools: dict[str, str],
 ) -> bool:
@@ -177,19 +235,19 @@ def check_tool_installed(
 
     Returns `True` if installed and not need to be reinstalled (by `force_install` flag).
     """
-    installed_version = installed_tools.get(tool_name)
+    installed_version = installed_tools.get(name)
 
     if not installed_version:
-        logger.info(f"{tool_name} not found, installing...")
+        logger.info(f"{name} not found, installing...")
         return False
 
-    if installed_version == tool_version:
-        logger.info(f"{tool_name} already installed with {tool_version}")
+    if installed_version == version:
+        logger.info(f"{name} already installed with {version}")
         return False
 
     msg = (
         "{tool_name} version mismatch "
-        f"(found: {installed_version}, expected: {tool_version})."
+        f"(found: {installed_version}, expected: {version})."
     )
     if force_install:
         msg += " Reinstalling..."
@@ -199,9 +257,14 @@ def check_tool_installed(
 
 
 def run_install_tool(
-    *, versioned_tool: str, dry_run: bool, prepared_command: tuple[str]
+    *,
+    versioned_tool: str,
+    dry_run: bool,
+    prepared_command: Iterable[str],
+    additional_args: Iterable[str],
 ):
     command = list(prepared_command)
+    command.extend(additional_args)
     command.append(versioned_tool)
 
     logger.info(f"Installing {versioned_tool}")
@@ -229,10 +292,7 @@ def prepare_rust_install_command(
     use_cargo_binstall: bool
     match install_method:
         case "prefer-binstall":
-            if shutil.which("cargo-binstall"):
-                use_cargo_binstall = True
-            else:
-                use_cargo_binstall = False
+            use_cargo_binstall = bool(shutil.which("cargo-binstall"))
         case "binstall":
             use_cargo_binstall = True
         case "install":
@@ -265,10 +325,7 @@ def prepare_python_install_command(
     use_python_uv: bool
     match install_method:
         case "prefer-uv":
-            if shutil.which("uv"):
-                use_python_uv = True
-            else:
-                use_python_uv = False
+            use_python_uv = bool(shutil.which("uv"))
         case "uv":
             use_python_uv = True
         case "pip":
@@ -404,24 +461,30 @@ def main() -> bool:
         install_method=args.python_install_method,
     )
 
-    for tool_name, tool_version, source in tools:
+    for tool in tools:
         installed_tools: dict[str, str]
-
-        match source:
+        additional_args: list[str] = []
+        match tool.source:
             case "crate":
-                versioned_tool = f"{tool_name}@{tool_version}"
+                versioned_tool = f"{tool.name}@{tool.version}"
                 installed_tools = installed_rust_tools
                 prepared_command = prepared_command_rust
+                if tool.locked:
+                    additional_args.append("--locked")
             case "pypi":
-                versioned_tool = f"{tool_name}=={tool_version}"
+                versioned_tool = f"{tool.name}=={tool.version}"
                 installed_tools = installed_rust_tools
                 prepared_command = prepared_command_python
+                if tool.locked:
+                    logger.info(
+                        f"{tool.name}: Locked install is not supported for Python install"
+                    )
             case _:
-                logger.warning(f"{tool_name}: Datasource is not supported")
+                logger.warning(f"{tool.name}: Source is not supported")
                 continue
 
         if check_tool_installed(
-            tool_name, tool_version, args.force_install, installed_tools
+            tool.name, tool.version, args.force_install, installed_tools
         ):
             continue  # Do nothing at this point
 
@@ -430,6 +493,7 @@ def main() -> bool:
                 versioned_tool=versioned_tool,
                 dry_run=args.dry_run,
                 prepared_command=prepared_command,
+                additional_args=additional_args,
             )
         except subprocess.CalledProcessError:
             return False
