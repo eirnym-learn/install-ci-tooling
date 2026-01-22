@@ -45,7 +45,7 @@ jobs:
           ~/.cargo/.crates.toml
           ~/.cargo/.crates2.json
         key: ${{ runner.os }}-${{ inputs.cache-key }}-${{ hashFiles('.github/ci-tools.toml') }}
-    - uses: actions/checkout@v6.0.1
+    - uses: actions/checkout@v6.0.2
     - name: Set up Python
       uses: actions/setup-python@v6.1.0
       with:

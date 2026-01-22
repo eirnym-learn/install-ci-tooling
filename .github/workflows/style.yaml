@@ -33,7 +33,7 @@ jobs:
     name: Pre-commit checks
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6.0.1
+    - uses: actions/checkout@v6.0.2
     - uses: j178/prek-action@v1.0.12
       with:
         prek-version: 0.2.30
