@@ -5,4 +5,4 @@ pytest-xdist = { version = "3.8.0", source = "pypi" }
 pytest-random-order = { version = "1.2.0", source = "pypi" }
 
 [not-installing]
-typos-cli = { version = "1.42.0", source = "crate" }
+typos-cli = { version = "1.42.3", source = "crate" }
