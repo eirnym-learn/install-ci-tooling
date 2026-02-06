@@ -34,6 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6.0.1
-    - uses: j178/prek-action@v1.0.12
+    - uses: j178/prek-action@v1.1.1
       with:
         prek-version: 0.2.30
